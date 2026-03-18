@@ -1,0 +1,61 @@
+services:
+  mysql-local:
+    image: mysql:8.0
+    container_name: oneapi-mysql-local
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      - MYSQL_ROOT_PASSWORD=local_root_password
+      - MYSQL_DATABASE=oneapi
+      - TZ=Asia/Shanghai
+    ports:
+      - "13306:3306"
+    volumes:
+      - mysql_local_data:/var/lib/mysql
+      - ./sql/localtest_init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -uroot -plocal_root_password --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  analytics-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oneapi-analytics-ui-local
+    restart: unless-stopped
+    ports:
+      - "18000:8000"
+    environment:
+      - DB_HOST=mysql-local
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=local_root_password
+      - DB_NAME=oneapi
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8000
+      - ADMIN_PATH=/console-9f3a2d7e
+      - ALLOWED_IPS=
+      - TRUST_PROXY_HEADERS=1
+      - ADMIN_PASSWORD=
+      - INIT_IMPORT_FROM_DUMP=0
+      - CHANNEL_TEST_URL_TEMPLATE=
+      - CHANNEL_TEST_USER=1
+      - CHANNEL_TEST_AUTHORIZATION=
+      - CHANNEL_TEST_STREAM=1
+      - NEW_API_BASE_URL=
+      - NEW_API_ACCESS_TOKEN=
+      - NEW_API_USER_ID=
+      - NEW_API_REFRESH_TIMEOUT_SECONDS=10
+    depends_on:
+      mysql-local:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;print(urllib.request.urlopen('http://localhost:8000/api/health', timeout=3).read().decode())\" | grep -q '\"ok\":true' || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+
+volumes:
+  mysql_local_data:

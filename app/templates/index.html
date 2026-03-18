@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OneAPI 使用量分析</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>OneAPI 使用量分析面板</h1>
+    <p>按令牌分析使用量、模型分布与排行榜</p>
+    <p><a href="{{ admin_path }}">进入熔断控制台</a> · <a href="/leaderboard">进入独立排行榜页面</a></p>
+  </header>
+
+  <section class="panel">
+    <h2>筛选条件</h2>
+    <div class="grid">
+      <label>开始时间
+        <input type="datetime-local" id="startTime" />
+      </label>
+      <label>结束时间
+        <input type="datetime-local" id="endTime" />
+      </label>
+      <label>令牌
+        <select id="tokenSelect"><option value="">全部</option></select>
+      </label>
+      <label>用户
+        <select id="userSelect"><option value="">全部</option></select>
+      </label>
+      <label>模型
+        <select id="modelSelect"><option value="">全部</option></select>
+      </label>
+      <label>分组
+        <select id="groupSelect"><option value="">全部</option></select>
+      </label>
+      <label>排行榜维度
+        <select id="rankDimension">
+          <option value="token">令牌</option>
+          <option value="user">用户</option>
+          <option value="model">模型</option>
+        </select>
+      </label>
+      <label>排行榜指标
+        <select id="rankMetric">
+          <option value="quota">Quota</option>
+          <option value="tokens">Tokens</option>
+          <option value="requests">请求数</option>
+        </select>
+      </label>
+    </div>
+    <div class="actions">
+      <button id="runBtn">查询</button>
+    </div>
+  </section>
+
+  <section class="cards" id="overviewCards"></section>
+
+  <section class="panel">
+    <h2>模型分布（当前筛选）</h2>
+    <div class="table-wrap">
+      <table id="modelUsageTable">
+        <thead>
+          <tr>
+            <th>模型</th>
+            <th>请求数</th>
+            <th>总 Tokens</th>
+            <th>总 Quota</th>
+            <th>错误数</th>
+            <th>访问 IP 数</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>排行榜</h2>
+    <div class="table-wrap">
+      <table id="rankTable">
+        <thead>
+          <tr>
+            <th>名称</th>
+            <th>请求数</th>
+            <th>总 Tokens</th>
+            <th>总 Quota</th>
+            <th>错误数</th>
+            <th>IP 数量</th>
+            <th>访问 IP（Top5）</th>
+            <th>详情</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>最近请求明细</h2>
+    <div class="table-wrap">
+      <table id="recentTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>时间</th>
+            <th>用户</th>
+            <th>令牌</th>
+            <th>模型</th>
+            <th>IP</th>
+            <th>类型</th>
+            <th>Quota</th>
+            <th>Prompt</th>
+            <th>Completion</th>
+            <th>耗时(ms)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="modal hidden" id="ipDetailModal">
+    <div class="modal-backdrop" data-close-modal="true"></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h3 id="ipDetailTitle">IP 详情</h3>
+          <p id="ipDetailSubtitle"></p>
+        </div>
+        <button type="button" class="ghost-btn" id="ipDetailCloseBtn">关闭</button>
+      </div>
+      <div class="cards compact" id="ipDetailSummary"></div>
+      <div class="table-wrap">
+        <table id="ipDetailTable">
+          <thead>
+            <tr>
+              <th>IP</th>
+              <th>请求数</th>
+              <th>总 Tokens</th>
+              <th>总 Quota</th>
+              <th>错误数</th>
+              <th>首次访问</th>
+              <th>最近访问</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=20260313-ip-detail-1"></script>
+</body>
+</html>

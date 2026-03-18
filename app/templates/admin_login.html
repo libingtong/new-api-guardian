@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>管理页登录</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>管理页登录</h1>
+    <p>请输入管理密码后进入控制台</p>
+  </header>
+
+  <section class="panel auth-panel">
+    <form id="adminLoginForm" class="auth-form">
+      <label>管理密码
+        <input id="adminPassword" type="password" autocomplete="current-password" required />
+      </label>
+      <div class="actions row-actions">
+        <button type="submit">登录</button>
+      </div>
+      <p class="auth-error hidden" id="authError">密码错误，请重试。</p>
+    </form>
+  </section>
+
+  <script>
+    const adminPath = {{ admin_path|tojson }};
+    const form = document.getElementById('adminLoginForm');
+    const passwordInput = document.getElementById('adminPassword');
+    const errorEl = document.getElementById('authError');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      errorEl.classList.add('hidden');
+      try {
+        const response = await fetch('/api/admin-auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: passwordInput.value }),
+        });
+        if (!response.ok) {
+          throw new Error('login failed');
+        }
+        window.location.href = adminPath;
+      } catch (error) {
+        errorEl.classList.remove('hidden');
+        passwordInput.focus();
+      }
+    });
+  </script>
+</body>
+</html>

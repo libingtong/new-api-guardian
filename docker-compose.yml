@@ -1,0 +1,74 @@
+version: "3.4"
+
+services:
+  new-api:
+    image: calciumion/new-api:latest
+    container_name: new-api
+    restart: always
+    command: --log-dir /app/logs
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/data
+      - ./logs:/app/logs
+    environment:
+      # 替换成你自己的 new-api 运行参数
+      - SQL_DSN=oneapi:your_password@tcp(host.docker.internal:3306)/oneapi
+      - REDIS_CONN_STRING=redis://redis
+      - TZ=Asia/Shanghai
+      - ERROR_LOG_ENABLED=true
+      - BATCH_UPDATE_ENABLED=true
+      # - STREAMING_TIMEOUT=300
+      # - SESSION_SECRET=random_string
+      # - SYNC_FREQUENCY=60
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/status | grep -o '\"success\":\\s*true' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: always
+
+  analytics-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oneapi-analytics-ui
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=host.docker.internal
+      - DB_PORT=3306
+      - DB_USER=oneapi
+      - DB_PASSWORD=your_password
+      - DB_NAME=oneapi
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8000
+      - ADMIN_PATH=/console-9f3a2d7e
+      - ALLOWED_IPS=
+      - TRUST_PROXY_HEADERS=1
+      - ADMIN_PASSWORD=
+      - INIT_IMPORT_FROM_DUMP=0
+      - CHANNEL_TEST_URL_TEMPLATE=http://host.docker.internal:3000/api/channel/test/{channel_id}?model={model}
+      - CHANNEL_TEST_USER=1
+      - CHANNEL_TEST_AUTHORIZATION=
+      - CHANNEL_TEST_STREAM=1
+      - NEW_API_BASE_URL=http://host.docker.internal:3000
+      - NEW_API_ACCESS_TOKEN=
+      - NEW_API_USER_ID=
+      - NEW_API_REFRESH_TIMEOUT_SECONDS=10
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8000/api/health | grep -o '\"ok\":\\s*true' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

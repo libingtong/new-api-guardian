@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智通AI Token 使用排行榜</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>智通AI Token 使用排行榜</h1>
+    <p>量化每个令牌的 AI 工作投入：总 Tokens、模型覆盖、活跃天数与工作量指数</p>
+    <p><a href="/analytics">返回分析页</a> · <a href="{{ admin_path }}">熔断控制台</a></p>
+  </header>
+
+  <section class="panel">
+    <h2>筛选条件</h2>
+    <div class="grid">
+      <label>开始时间
+        <input type="datetime-local" id="startTime" />
+      </label>
+      <label>结束时间
+        <input type="datetime-local" id="endTime" />
+      </label>
+      <label>分组
+        <select id="groupSelect"><option value="">全部</option></select>
+      </label>
+      <label>榜单条数
+        <input type="number" id="limitInput" min="1" max="500" value="100" />
+      </label>
+    </div>
+    <div class="actions">
+      <button id="runBtn">刷新榜单</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>排行榜（按总 Tokens 排序）</h2>
+    <div class="table-wrap">
+      <table id="leaderboardTable">
+        <thead>
+          <tr>
+            <th>排名</th>
+            <th>令牌</th>
+            <th>总 Tokens</th>
+            <th>请求数</th>
+            <th>总 Quota</th>
+            <th>活跃天数</th>
+            <th>模型数</th>
+            <th>主力模型</th>
+            <th>模型列表（Top5）</th>
+            <th>IP 数量</th>
+            <th>访问 IP（Top5）</th>
+            <th>详情</th>
+            <th>工作量指数</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="modal hidden" id="ipDetailModal">
+    <div class="modal-backdrop" data-close-modal="true"></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h3 id="ipDetailTitle">IP 详情</h3>
+          <p id="ipDetailSubtitle"></p>
+        </div>
+        <button type="button" class="ghost-btn" id="ipDetailCloseBtn">关闭</button>
+      </div>
+      <div class="cards compact" id="ipDetailSummary"></div>
+      <div class="table-wrap">
+        <table id="ipDetailTable">
+          <thead>
+            <tr>
+              <th>IP</th>
+              <th>请求数</th>
+              <th>总 Tokens</th>
+              <th>总 Quota</th>
+              <th>错误数</th>
+              <th>首次访问</th>
+              <th>最近访问</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/leaderboard.js?v=20260313-ip-detail-1"></script>
+</body>
+</html>

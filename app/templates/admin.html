@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>渠道熔断与恢复控制台</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <div>
+        <h1>渠道熔断与自动恢复控制台</h1>
+        <p>扫描错误日志、自动禁用异常渠道，并对禁用渠道做恢复探测</p>
+      </div>
+      <nav class="nav-links">
+        <a href="/analytics">使用量分析</a>
+        <a href="/leaderboard">排行榜</a>
+        <button class="ghost-btn mini-btn" id="logoutBtn" type="button">退出</button>
+      </nav>
+    </div>
+  </header>
+
+  <section class="cards" id="summaryCards"></section>
+  <section class="panel hidden" id="refreshWarningPanel">
+    <div class="hint-banner warning" id="refreshWarningText"></div>
+  </section>
+
+  <section class="panel split">
+    <div>
+      <div class="section-title">
+        <div>
+          <h2>规则配置</h2>
+          <p>支持新增多条独立规则，分别针对不同渠道、状态码、错误码和返回内容</p>
+        </div>
+        <div class="inline-actions">
+          <button id="openCreateRuleBtn" type="button">新增规则</button>
+          <button class="ghost-btn" id="refreshBtn" type="button">刷新</button>
+        </div>
+      </div>
+      <div class="hint-banner">
+        点击“新增规则”可以创建多条规则；点击列表里的“编辑”可以修改已有规则。
+      </div>
+      <div class="hint-banner warning">
+        风险提醒：不要创建“全空条件”或范围过宽的规则。未限定渠道、分组、模型的规则可能误伤大量渠道。
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">
+        <div>
+          <h2>规则列表</h2>
+          <p>点击编辑可回填表单；点击启用/停用可快速切换策略</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="rulesTable">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>规则</th>
+              <th>状态</th>
+              <th>阈值</th>
+              <th>匹配摘要</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div class="modal hidden" id="ruleModal">
+    <div class="modal-backdrop" data-close-rule-modal="true"></div>
+    <div class="modal-dialog rule-dialog">
+      <div class="modal-header">
+        <div>
+          <h3 id="ruleModalTitle">新增规则</h3>
+          <p>按渠道、模型、状态码、错误码、返回内容组合定义独立规则</p>
+        </div>
+        <button type="button" class="ghost-btn" id="closeRuleModalBtn">关闭</button>
+      </div>
+
+      <form id="ruleForm" class="form-grid">
+        <input type="hidden" id="ruleId" />
+        <label>规则名称
+          <input id="ruleName" type="text" placeholder="例如：上游无返回自动禁用" required />
+        </label>
+        <label>是否启用
+          <select id="ruleEnabled">
+            <option value="1">启用</option>
+            <option value="0">停用</option>
+          </select>
+        </label>
+        <label>优先级
+          <input id="rulePriority" type="number" value="100" />
+        </label>
+        <label>窗口秒数
+          <input id="ruleWindowSeconds" type="number" value="300" min="1" />
+        </label>
+        <label>阈值次数
+          <input id="ruleThresholdCount" type="number" value="3" min="1" />
+        </label>
+        <label>动作
+          <select id="ruleActionType">
+            <option value="disable_channel">disable_channel</option>
+            <option value="disable_model">disable_model</option>
+          </select>
+        </label>
+        <label>指定渠道 ID
+          <textarea id="matchChannelIds" placeholder="逗号或换行分隔"></textarea>
+        </label>
+        <label>指定分组
+          <textarea id="matchGroups" placeholder="例如：coding, default"></textarea>
+        </label>
+        <label>指定模型
+          <textarea id="matchModels" placeholder="例如：glm-5"></textarea>
+        </label>
+        <label>错误文本关键字
+          <textarea id="matchErrorText" placeholder="例如：上游没有返回消息"></textarea>
+        </label>
+        <label>错误码
+          <textarea id="matchErrorCodes" placeholder="例如：channel:no_response"></textarea>
+        </label>
+        <label>状态码
+          <textarea id="matchStatusCodes" placeholder="例如：408, 503"></textarea>
+        </label>
+        <label>请求路径
+          <textarea id="matchRequestPaths" placeholder="例如：/v1/chat/completions"></textarea>
+        </label>
+        <div class="actions row-actions">
+          <button type="submit">保存规则</button>
+          <button class="ghost-btn" id="resetRuleBtn" type="button">清空表单</button>
+        </div>
+        <p class="subtle-text">
+          保存前提醒：如果没有限定渠道、分组、模型，规则覆盖面会非常大。系统已禁止“全空条件”规则。
+        </p>
+      </form>
+    </div>
+  </div>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <h2>自动禁用渠道</h2>
+        <p>仅展示由当前服务禁用且仍处于恢复探测队列中的渠道</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="disabledTable">
+        <thead>
+          <tr>
+            <th>渠道 ID</th>
+            <th>名称</th>
+            <th>状态</th>
+            <th>探测模型</th>
+            <th>禁用原因</th>
+            <th>禁用时间</th>
+            <th>最近探测</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <h2>恢复探测状态</h2>
+        <p>渠道级恢复，每 10 秒探测一次，连续 3 次成功后自动恢复</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="recoveryTable">
+        <thead>
+          <tr>
+            <th>渠道 ID</th>
+            <th>名称</th>
+            <th>连续成功</th>
+            <th>探测结果</th>
+            <th>最近错误</th>
+            <th>最近探测时间</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <h2>模型恢复探测状态</h2>
+        <p>模型级恢复，每 10 秒探测一次被移除模型，连续 3 次成功后写回</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="modelRecoveryTable">
+        <thead>
+          <tr>
+            <th>渠道 ID</th>
+            <th>名称</th>
+            <th>模型</th>
+            <th>连续成功</th>
+            <th>探测结果</th>
+            <th>最近错误</th>
+            <th>最近探测时间</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <h2>动作审计</h2>
+        <p>记录自动禁用与自动恢复动作</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="actionsTable">
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>渠道</th>
+            <th>动作</th>
+            <th>状态变化</th>
+            <th>原因</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <h2>命中记录</h2>
+        <p>最近命中的错误日志与规则映射</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="hitsTable">
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>规则</th>
+            <th>渠道</th>
+            <th>日志 ID</th>
+            <th>摘要</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <script src="/static/admin.js?v=20260317-breaker-1"></script>
+</body>
+</html>
