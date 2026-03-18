@@ -89,6 +89,11 @@ class BreakerLogicTests(unittest.TestCase):
         with self.assertRaises(RuleValidationError):
             payload_to_record(payload)
 
+    def test_unstable_channel_action_is_accepted(self):
+        payload = RulePayload(name="unstable", match_channel_ids=[38], action_type="disable_unstable_channel")
+        record = payload_to_record(payload)
+        self.assertEqual(record["action_type"], "disable_unstable_channel")
+
     def test_split_sql_statements_keeps_insert_payload_intact(self):
         script = """
         DROP TABLE IF EXISTS `demo`;

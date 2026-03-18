@@ -64,6 +64,7 @@ ACTION_DISABLE_CHANNEL = "disable_channel"
 ACTION_RESTORE_CHANNEL = "restore_channel"
 ACTION_DISABLE_MODEL = "disable_model"
 ACTION_RESTORE_MODEL = "restore_model"
+ACTION_DISABLE_UNSTABLE_CHANNEL = "disable_unstable_channel"
 
 
 class RulePayload(BaseModel):
@@ -188,7 +189,7 @@ def serialize_rule_row(row: Dict[str, Any]) -> Dict[str, Any]:
 
 def payload_to_record(payload: RulePayload) -> Dict[str, Any]:
     action_type = (payload.action_type or "").strip() or ACTION_DISABLE_CHANNEL
-    if action_type not in {ACTION_DISABLE_CHANNEL, ACTION_DISABLE_MODEL}:
+    if action_type not in {ACTION_DISABLE_CHANNEL, ACTION_DISABLE_MODEL, ACTION_DISABLE_UNSTABLE_CHANNEL}:
         action_type = ACTION_DISABLE_CHANNEL
     match_channel_ids = normalize_int_list(payload.match_channel_ids)
     match_groups = normalize_str_list(payload.match_groups)
@@ -247,6 +248,11 @@ def normalize_ability_row(row: Dict[str, Any]) -> Dict[str, Any]:
 def is_service_managed_disabled(other_info: Dict[str, Any]) -> bool:
     breaker = other_info.get("breaker", {}) if isinstance(other_info, dict) else {}
     return breaker.get("managed_by") == SERVICE_NAME and breaker.get("state") == "auto_disabled"
+
+
+def is_service_managed_unstable_disabled(other_info: Dict[str, Any]) -> bool:
+    breaker = other_info.get("breaker", {}) if isinstance(other_info, dict) else {}
+    return breaker.get("managed_by") == SERVICE_NAME and breaker.get("state") == "unstable_disabled"
 
 
 def channel_disabled_by_model_depletion(other_info: Dict[str, Any]) -> bool:
@@ -419,6 +425,33 @@ def build_model_depleted_other_info(
             "interval_seconds": RECOVERY_INTERVAL_SECONDS,
             "required_success_count": RECOVERY_SUCCESS_TARGET,
         },
+    }
+    return info
+
+
+def build_unstable_disabled_other_info(
+    other_info: Dict[str, Any],
+    reason: str,
+    ts: int,
+    rule: Dict[str, Any],
+    source_log_ids: List[int],
+    hit_count: int,
+) -> Dict[str, Any]:
+    info = dict(other_info or {})
+    info["status_reason"] = reason
+    info["status_time"] = ts
+    info["breaker"] = {
+        "managed_by": SERVICE_NAME,
+        "state": "unstable_disabled",
+        "disabled_at": ts,
+        "recovered_at": None,
+        "requires_manual_recovery": True,
+        "source_rule_id": rule["id"],
+        "source_rule_name": rule["name"],
+        "source_log_ids": source_log_ids,
+        "disable_count_within_window": hit_count,
+        "stability_window_seconds": int(rule["window_seconds"]),
+        "stability_threshold_count": int(rule["threshold_count"]),
     }
     return info
 
@@ -665,6 +698,48 @@ def list_auto_disabled_channels() -> List[Dict[str, Any]]:
     return items
 
 
+def list_unstable_disabled_channels() -> List[Dict[str, Any]]:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                  c.id,
+                  c.name,
+                  c.status,
+                  c.test_model,
+                  c.models,
+                  c.base_url,
+                  c.other_info,
+                  c.`group`
+                FROM channels c
+                WHERE c.status = %s
+                ORDER BY c.id DESC
+                """,
+                (AUTO_DISABLED_STATUS,),
+            )
+            rows = cur.fetchall()
+
+    items: List[Dict[str, Any]] = []
+    for row in rows:
+        other_info = parse_json_text(row.get("other_info"), {})
+        if not is_service_managed_unstable_disabled(other_info):
+            continue
+        breaker_state = other_info.get("breaker", {}) if isinstance(other_info, dict) else {}
+        items.append(
+            {
+                **row,
+                "other_info": other_info,
+                "breaker": breaker_state,
+                "disabled_reason": other_info.get("status_reason", ""),
+                "disabled_at": breaker_state.get("disabled_at"),
+                "requires_manual_recovery": bool(breaker_state.get("requires_manual_recovery")),
+                "disable_count_within_window": int(breaker_state.get("disable_count_within_window") or 0),
+            }
+        )
+    return items
+
+
 def list_model_recovery_states() -> List[Dict[str, Any]]:
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -760,6 +835,8 @@ def get_admin_summary() -> Dict[str, Any]:
             disabled_model_total = int(cur.fetchone()["total"] or 0)
             cur.execute("SELECT COUNT(*) AS total FROM channel_action_audit WHERE action_type = %s", (ACTION_RESTORE_MODEL,))
             restored_model_total = int(cur.fetchone()["total"] or 0)
+            cur.execute("SELECT COUNT(*) AS total FROM channel_action_audit WHERE action_type = %s", (ACTION_DISABLE_UNSTABLE_CHANNEL,))
+            unstable_disabled_total = int(cur.fetchone()["total"] or 0)
             cur.execute("SELECT COUNT(*) AS total FROM rule_hits")
             hit_total = int(cur.fetchone()["total"] or 0)
     return {
@@ -771,6 +848,7 @@ def get_admin_summary() -> Dict[str, Any]:
         "restored_total": restored_total,
         "disabled_model_total": disabled_model_total,
         "restored_model_total": restored_model_total,
+        "unstable_disabled_total": unstable_disabled_total,
         "hit_total": hit_total,
         "new_api_refresh": get_new_api_refresh_status(),
     }
@@ -917,6 +995,10 @@ def apply_rule_hit_and_action(event: Dict[str, Any], rule: Dict[str, Any]) -> No
                 source_log_ids = [int(item["log_id"]) for item in cur.fetchall()]
                 if rule["action_type"] == ACTION_DISABLE_MODEL:
                     should_refresh_cache = apply_disable_model_action(cur, event, rule, hit_count, source_log_ids)
+                elif rule["action_type"] == ACTION_DISABLE_UNSTABLE_CHANNEL:
+                    should_refresh_cache = apply_disable_unstable_channel_action(
+                        cur, event, rule, hit_count, source_log_ids
+                    )
                 else:
                     should_refresh_cache = apply_disable_channel_action(cur, event, rule, hit_count, source_log_ids)
             conn.commit()
@@ -1027,6 +1109,111 @@ def apply_disable_channel_action(
             None,
             ts,
             ts,
+        ),
+    )
+    return True
+
+
+def count_recent_channel_disables(cur: Any, channel_id: int, window_seconds: int) -> int:
+    threshold_window_start = now_ts() - int(window_seconds)
+    cur.execute(
+        """
+        SELECT COUNT(*) AS total
+        FROM channel_action_audit
+        WHERE channel_id = %s
+          AND action_type = %s
+          AND created_at >= %s
+        """,
+        (channel_id, ACTION_DISABLE_CHANNEL, threshold_window_start),
+    )
+    return int(cur.fetchone()["total"] or 0)
+
+
+def apply_disable_unstable_channel_action(
+    cur: Any,
+    event: Dict[str, Any],
+    rule: Dict[str, Any],
+    hit_count: int,
+    source_log_ids: List[int],
+) -> bool:
+    cur.execute(
+        """
+        SELECT id, name, status, test_model, models, other_info
+        FROM channels
+        WHERE id = %s
+        FOR UPDATE
+        """,
+        (event["channel_id"],),
+    )
+    channel = cur.fetchone()
+    if not channel:
+        return False
+
+    other_info = parse_json_text(channel.get("other_info"), {})
+    breaker = other_info.get("breaker", {}) if isinstance(other_info, dict) else {}
+    if int(channel.get("status") or 0) == AUTO_DISABLED_STATUS:
+        return False
+
+    recent_disable_count = count_recent_channel_disables(cur, event["channel_id"], int(rule["window_seconds"]))
+    if recent_disable_count < int(rule["threshold_count"]):
+        return False
+
+    ts = now_ts()
+    probe_model = choose_probe_model(channel, event["model_name"])
+    should_disable, probe_detail, probe_payload = should_execute_disable_action(event["channel_id"], probe_model)
+    if not should_disable:
+        LOGGER.info(
+            "skip unstable channel disable after active probe succeeded channel_id=%s probe_model=%s detail=%s",
+            event["channel_id"],
+            probe_model,
+            probe_detail,
+        )
+        return False
+
+    reason = (
+        f"Rule {rule['name']} marked channel as unstable after {recent_disable_count} automatic disables "
+        f"within {int(rule['window_seconds'])} seconds; active probe failed: {probe_detail}"
+    )
+    new_other_info = build_unstable_disabled_other_info(
+        other_info=other_info,
+        reason=reason,
+        ts=ts,
+        rule=rule,
+        source_log_ids=source_log_ids,
+        hit_count=recent_disable_count,
+    )
+    before_status = int(channel.get("status") or 0)
+    cur.execute(
+        "UPDATE channels SET status = %s, other_info = %s WHERE id = %s",
+        (AUTO_DISABLED_STATUS, json_text(new_other_info), event["channel_id"]),
+    )
+    cur.execute("DELETE FROM channel_recovery_state WHERE channel_id = %s", (event["channel_id"],))
+    cur.execute(
+        """
+        INSERT INTO channel_action_audit (
+          channel_id, action_type, reason, source_rule_id, source_log_ids,
+          before_status, after_status, created_at, metadata_json
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            event["channel_id"],
+            ACTION_DISABLE_UNSTABLE_CHANNEL,
+            reason,
+            rule["id"],
+            json_text(source_log_ids),
+            before_status,
+            AUTO_DISABLED_STATUS,
+            ts,
+            json_text(
+                {
+                    "rule": rule["name"],
+                    "event": event,
+                    "probe_model": probe_model,
+                    "probe_payload": probe_payload,
+                    "recent_disable_count": recent_disable_count,
+                    "requires_manual_recovery": True,
+                }
+            ),
         ),
     )
     return True
@@ -1282,6 +1469,7 @@ def build_restored_other_info(other_info: Dict[str, Any], ts: int, reason: str) 
             "recovered_at": ts,
             "last_restore_reason": reason,
             "auto_disabled_by_model_depletion": False,
+            "requires_manual_recovery": False,
         }
     )
     info["breaker"] = breaker
@@ -1752,3 +1940,63 @@ def perform_channel_probe(channel_id: int, probe_model: str) -> tuple[bool, str,
         return False, payload["detail"], payload
     except urllib_error.URLError as exc:
         return False, f"probe network error: {exc.reason}", {"success": False, "detail": str(exc.reason)}
+
+
+def manual_restore_channel(channel_id: int) -> Dict[str, Any]:
+    ts = now_ts()
+    should_refresh_cache = False
+    with get_conn(autocommit=False) as conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT status, other_info, name
+                    FROM channels
+                    WHERE id = %s
+                    FOR UPDATE
+                    """,
+                    (channel_id,),
+                )
+                channel = cur.fetchone()
+                if not channel:
+                    raise ValueError(f"channel {channel_id} not found")
+
+                other_info = parse_json_text(channel.get("other_info"), {})
+                if not is_service_managed_unstable_disabled(other_info):
+                    raise ValueError(f"channel {channel_id} is not in manual recovery state")
+
+                before_status = int(channel.get("status") or 0)
+                restore_reason = "Restored manually after unstable channel disable"
+                new_other_info = build_restored_other_info(other_info, ts, restore_reason)
+                cur.execute(
+                    "UPDATE channels SET status = %s, other_info = %s WHERE id = %s",
+                    (ENABLED_STATUS, json_text(new_other_info), channel_id),
+                )
+                should_refresh_cache = True
+                cur.execute("DELETE FROM channel_recovery_state WHERE channel_id = %s", (channel_id,))
+                cur.execute(
+                    """
+                    INSERT INTO channel_action_audit (
+                      channel_id, action_type, reason, source_rule_id, source_log_ids,
+                      before_status, after_status, created_at, metadata_json
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        channel_id,
+                        ACTION_RESTORE_CHANNEL,
+                        restore_reason,
+                        None,
+                        json_text([]),
+                        before_status,
+                        ENABLED_STATUS,
+                        ts,
+                        json_text({"source": "manual_restore"}),
+                    ),
+                )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+    if should_refresh_cache:
+        refresh_new_api_channel_cache(channel_id)
+    return {"ok": True, "channel_id": channel_id}

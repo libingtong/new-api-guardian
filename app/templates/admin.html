@@ -106,6 +106,7 @@
           <select id="ruleActionType">
             <option value="disable_channel">disable_channel</option>
             <option value="disable_model">disable_model</option>
+            <option value="disable_unstable_channel">disable_unstable_channel</option>
           </select>
         </label>
         <label>指定渠道 ID
@@ -182,6 +183,31 @@
             <th>探测结果</th>
             <th>最近错误</th>
             <th>最近探测时间</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <h2>不稳定渠道</h2>
+        <p>在窗口内多次被自动禁用的渠道会进入人工恢复模式，不再自动恢复</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="unstableTable">
+        <thead>
+          <tr>
+            <th>渠道 ID</th>
+            <th>名称</th>
+            <th>恢复策略</th>
+            <th>窗口内禁用次数</th>
+            <th>禁用原因</th>
+            <th>禁用时间</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody></tbody>

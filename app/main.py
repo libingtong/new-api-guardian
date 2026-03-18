@@ -22,6 +22,8 @@ from app.breaker import (
     list_auto_disabled_channels,
     list_events,
     list_recovery_states,
+    list_unstable_disabled_channels,
+    manual_restore_channel,
     list_rules,
     RuleValidationError,
     update_rule,
@@ -73,8 +75,7 @@ ADMIN_API_PREFIXES = (
     "/api/admin-summary",
     "/api/rules",
     "/api/events",
-    "/api/channels/auto-disabled",
-    "/api/channels/recovery-state",
+    "/api/channels/",
 )
 
 
@@ -323,9 +324,22 @@ def auto_disabled_channels():
     return {"items": list_auto_disabled_channels()}
 
 
+@app.get("/api/channels/unstable-disabled")
+def unstable_disabled_channels():
+    return {"items": list_unstable_disabled_channels()}
+
+
 @app.get("/api/channels/recovery-state")
 def recovery_state():
     return list_recovery_states()
+
+
+@app.post("/api/channels/{channel_id}/manual-restore")
+def manual_restore_channel_api(channel_id: int):
+    try:
+        return manual_restore_channel(channel_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/filters")

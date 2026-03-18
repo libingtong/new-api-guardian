@@ -89,6 +89,7 @@ function renderSummary(summary) {
     ['渠道恢复中', num(summary.channel_recovery_pending)],
     ['模型恢复中', num(summary.model_recovery_pending)],
     ['累计禁用渠道', num(summary.disabled_total)],
+    ['累计不稳定禁用', num(summary.unstable_disabled_total)],
     ['累计恢复渠道', num(summary.restored_total)],
     ['累计禁用模型', num(summary.disabled_model_total)],
     ['累计恢复模型', num(summary.restored_model_total)],
@@ -194,6 +195,27 @@ function renderRecovery(items) {
     .join('');
 }
 
+function renderUnstable(items) {
+  const tbody = document.querySelector('#unstableTable tbody');
+  if (!items.length) {
+    tbody.innerHTML = '<tr><td colspan="7">暂无需人工恢复的不稳定渠道</td></tr>';
+    return;
+  }
+  tbody.innerHTML = items
+    .map((item) => `
+      <tr>
+        <td>${item.id}</td>
+        <td>${text(item.name)}</td>
+        <td>${badge('人工恢复', 'danger')}</td>
+        <td>${num(item.disable_count_within_window)}</td>
+        <td>${text(item.disabled_reason)}</td>
+        <td>${formatTs(item.disabled_at)}</td>
+        <td><button class="ghost-btn mini-btn" type="button" data-action="manual-restore" data-id="${item.id}">手动恢复</button></td>
+      </tr>
+    `)
+    .join('');
+}
+
 function renderModelRecovery(items) {
   const tbody = document.querySelector('#modelRecoveryTable tbody');
   if (!items.length) {
@@ -221,6 +243,7 @@ function renderModelRecovery(items) {
 function actionBadge(actionType) {
   if (actionType === 'restore_channel') return badge('恢复渠道', 'success');
   if (actionType === 'disable_channel') return badge('禁用渠道', 'danger');
+  if (actionType === 'disable_unstable_channel') return badge('不稳定禁用', 'danger');
   if (actionType === 'restore_model') return badge('恢复模型', 'success');
   if (actionType === 'disable_model') return badge('禁用模型', 'warning');
   return badge(text(actionType), 'neutral');
@@ -320,16 +343,18 @@ function isBroadRiskRule(payload) {
 }
 
 async function loadDashboard() {
-  const [summary, rules, disabled, recovery, events] = await Promise.all([
+  const [summary, rules, disabled, unstable, recovery, events] = await Promise.all([
     getJson('/api/admin-summary'),
     getJson('/api/rules'),
     getJson('/api/channels/auto-disabled'),
+    getJson('/api/channels/unstable-disabled'),
     getJson('/api/channels/recovery-state'),
     getJson('/api/events', { limit: 50 }),
   ]);
   renderSummary(summary);
   renderRules(rules.items || []);
   renderDisabled(disabled.items || []);
+  renderUnstable(unstable.items || []);
   renderRecovery(recovery.channel_items || []);
   renderModelRecovery(recovery.model_items || []);
   renderActions(events.actions || []);
@@ -360,6 +385,18 @@ function bindRuleTable() {
       await sendJson(`/api/rules/${ruleId}`, 'PUT', payload);
       await loadDashboard();
     }
+  });
+}
+
+function bindUnstableTable() {
+  document.querySelector('#unstableTable tbody').addEventListener('click', async (event) => {
+    const btn = event.target.closest('button');
+    if (!btn || btn.dataset.action !== 'manual-restore') return;
+    const channelId = Number(btn.dataset.id);
+    const confirmed = window.confirm(`确认手动恢复渠道 ${channelId} 吗？`);
+    if (!confirmed) return;
+    await fetch(`/api/channels/${channelId}/manual-restore`, { method: 'POST' });
+    await loadDashboard();
   });
 }
 
@@ -419,6 +456,7 @@ function bindLogout() {
 
 async function main() {
   bindRuleTable();
+  bindUnstableTable();
   bindRuleForm();
   bindRuleModal();
   bindLogout();

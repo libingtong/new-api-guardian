@@ -123,6 +123,38 @@ class MainRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), fake_state)
 
+    def test_unstable_disabled_endpoint_returns_items(self):
+        worker = Mock()
+        worker.snapshot.return_value = {}
+        worker_cls = Mock(return_value=worker)
+        fake_items = [{"id": 7, "name": "unstable-channel"}]
+
+        with patch("app.main.bootstrap_database"), patch("app.main.WorkerManager", worker_cls), patch(
+            "app.main.list_unstable_disabled_channels",
+            return_value=fake_items,
+        ):
+            with TestClient(app) as client:
+                response = client.get("/api/channels/unstable-disabled")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"items": fake_items})
+
+    def test_manual_restore_endpoint_calls_backend_service(self):
+        worker = Mock()
+        worker.snapshot.return_value = {}
+        worker_cls = Mock(return_value=worker)
+
+        with patch("app.main.ADMIN_PASSWORD", ""), patch("app.main.bootstrap_database"), patch(
+            "app.main.WorkerManager",
+            worker_cls,
+        ), patch("app.main.manual_restore_channel", return_value={"ok": True, "channel_id": 9}) as restore_mock:
+            with TestClient(app) as client:
+                response = client.post("/api/channels/9/manual-restore")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"ok": True, "channel_id": 9})
+        restore_mock.assert_called_once_with(9)
+
     def test_delete_rule_endpoint_calls_backend_service(self):
         worker = Mock()
         worker.snapshot.return_value = {}
