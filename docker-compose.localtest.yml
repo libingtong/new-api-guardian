@@ -48,6 +48,8 @@ services:
       - NEW_API_ACCESS_TOKEN=
       - NEW_API_USER_ID=
       - NEW_API_REFRESH_TIMEOUT_SECONDS=10
+      - WECOM_ROBOT_WEBHOOK=
+      - WECOM_NOTIFY_TIMEOUT_SECONDS=5
     depends_on:
       mysql-local:
         condition: service_healthy

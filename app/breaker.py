@@ -48,6 +48,8 @@ NEW_API_BASE_URL = os.getenv("NEW_API_BASE_URL", "").strip().rstrip("/")
 NEW_API_ACCESS_TOKEN = os.getenv("NEW_API_ACCESS_TOKEN", "").strip()
 NEW_API_USER_ID = os.getenv("NEW_API_USER_ID", "").strip()
 NEW_API_REFRESH_TIMEOUT_SECONDS = float(os.getenv("NEW_API_REFRESH_TIMEOUT_SECONDS", "10"))
+WECOM_ROBOT_WEBHOOK = os.getenv("WECOM_ROBOT_WEBHOOK", "").strip()
+WECOM_NOTIFY_TIMEOUT_SECONDS = float(os.getenv("WECOM_NOTIFY_TIMEOUT_SECONDS", "5"))
 NEW_API_ADMIN_ROLE_MIN = 10
 NEW_API_USER_STATUS_ENABLED = 1
 
@@ -941,6 +943,7 @@ def build_log_event(row: Dict[str, Any]) -> Dict[str, Any]:
 def apply_rule_hit_and_action(event: Dict[str, Any], rule: Dict[str, Any]) -> None:
     hit_key = compute_hit_key(rule, event)
     should_refresh_cache = False
+    unstable_notify_payload: Optional[Dict[str, Any]] = None
     with get_conn(autocommit=False) as conn:
         try:
             with conn.cursor() as cur:
@@ -999,6 +1002,12 @@ def apply_rule_hit_and_action(event: Dict[str, Any], rule: Dict[str, Any]) -> No
                     should_refresh_cache = apply_disable_unstable_channel_action(
                         cur, event, rule, hit_count, source_log_ids
                     )
+                    if should_refresh_cache:
+                        unstable_notify_payload = build_unstable_channel_notification_payload(
+                            event=event,
+                            rule=rule,
+                            source_log_ids=source_log_ids,
+                        )
                 else:
                     should_refresh_cache = apply_disable_channel_action(cur, event, rule, hit_count, source_log_ids)
             conn.commit()
@@ -1007,6 +1016,8 @@ def apply_rule_hit_and_action(event: Dict[str, Any], rule: Dict[str, Any]) -> No
             raise
     if should_refresh_cache:
         refresh_new_api_channel_cache(event["channel_id"])
+    if unstable_notify_payload:
+        send_wecom_markdown_async(unstable_notify_payload["title"], unstable_notify_payload["body"])
 
 
 def apply_disable_channel_action(
@@ -1217,6 +1228,74 @@ def apply_disable_unstable_channel_action(
         ),
     )
     return True
+
+
+def build_unstable_channel_notification_payload(
+    event: Dict[str, Any],
+    rule: Dict[str, Any],
+    source_log_ids: List[int],
+) -> Dict[str, str]:
+    channel_id = int(event.get("channel_id") or 0)
+    title = "New API 渠道稳定性告警"
+    lines = [
+        f"> 渠道 **{event.get('channel_name') or channel_id}** 已被标记为不稳定并禁用",
+        f"> 渠道 ID：`{channel_id}`",
+        f"> 规则：`{rule.get('name') or '-'}`",
+        f"> 恢复策略：人工恢复",
+        f"> 统计窗口：`{int(rule.get('window_seconds') or 0)}` 秒",
+        f"> 禁用阈值：`{int(rule.get('threshold_count') or 0)}` 次自动禁用",
+    ]
+    if event.get("model_name"):
+        lines.append(f"> 最近失败模型：`{event['model_name']}`")
+    if event.get("error_code"):
+        lines.append(f"> 错误码：`{event['error_code']}`")
+    if event.get("status_code") is not None:
+        lines.append(f"> 状态码：`{event['status_code']}`")
+    if event.get("content"):
+        lines.append(f"> 最近错误：{str(event['content'])[:160]}")
+    if source_log_ids:
+        lines.append(f"> 关联日志：`{', '.join(str(item) for item in source_log_ids[:5])}`")
+    lines.append("")
+    lines.append("请尽快人工确认该渠道状态，并在管理后台决定是否恢复。")
+    return {"title": title, "body": "\n".join(lines)}
+
+
+def send_wecom_markdown_async(title: str, body: str) -> None:
+    if not WECOM_ROBOT_WEBHOOK:
+        return
+    thread = threading.Thread(
+        target=_send_wecom_markdown,
+        args=(title, body),
+        name="wecom-robot-notify",
+        daemon=True,
+    )
+    thread.start()
+
+
+def _send_wecom_markdown(title: str, body: str) -> None:
+    payload = {
+        "msgtype": "markdown",
+        "markdown": {
+            "content": f"## {title}\n{body}",
+        },
+    }
+    req = urllib_request.Request(
+        WECOM_ROBOT_WEBHOOK,
+        data=json_text(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json; charset=utf-8"},
+        method="POST",
+    )
+    try:
+        with urllib_request.urlopen(req, timeout=WECOM_NOTIFY_TIMEOUT_SECONDS) as response:
+            raw_body = response.read().decode("utf-8", errors="replace")
+            if response.getcode() >= 400:
+                LOGGER.warning("wecom robot notify failed status=%s body=%s", response.getcode(), raw_body)
+                return
+            payload = parse_json_text(raw_body, {})
+            if payload.get("errcode", 0) != 0:
+                LOGGER.warning("wecom robot notify failed errcode=%s errmsg=%s", payload.get("errcode"), payload.get("errmsg"))
+    except Exception as exc:
+        LOGGER.warning("wecom robot notify error: %s", exc)
 
 
 def apply_disable_model_action(
