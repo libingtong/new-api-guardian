@@ -30,7 +30,7 @@ const TABLE_COLUMNS = {
     { key: 'id', label: 'ID', render: (r) => r.id },
     { key: 'created_at', label: '时间', render: (r) => formatTs(r.created_at) },
     { key: 'username', label: '用户', render: (r) => text(r.username) },
-    { key: 'token', label: '令牌', render: (r) => `${r.token_id ?? '-'} ${r.token_name || ''}`.trim() },
+    { key: 'token', label: '令牌', render: (r) => `${r.token_name || '-'}（${r.token_id ?? '-'}）` },
     { key: 'model_name', label: '模型', render: (r) => text(r.model_name) },
     { key: 'ip', label: 'IP', render: (r) => text(r.ip) },
     { key: 'type', label: '类型', render: (r) => r.type },
@@ -128,7 +128,7 @@ function createDetailButton(row, dimension) {
     `;
   }
   if (dimension === 'token' && row.token_id !== undefined && row.token_id !== null) {
-    label = `${row.token_id} - ${row.name || row.token_name || '-'}`;
+    label = `${row.name || row.token_name || '-'}（${row.token_id}）`;
     return `
       <button
         type="button"
@@ -307,7 +307,7 @@ async function loadFilters() {
   data.tokens.forEach((t) => {
     const opt = document.createElement('option');
     opt.value = t.token_id;
-    opt.textContent = `${t.token_id} - ${t.token_name || '(unknown)'}`;
+    opt.textContent = `${t.token_name || '(unknown)'}（${t.token_id}）`;
     tokenSelect.appendChild(opt);
   });
 
