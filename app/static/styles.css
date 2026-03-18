@@ -137,20 +137,48 @@ a {
 }
 
 .nav-pills {
-  flex-wrap: wrap;
+  display: inline-flex;
+  align-self: flex-end;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(20, 38, 48, 0.08);
+  background: rgba(255, 255, 255, 0.44);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(10px);
 }
 
 .nav-pills a,
 .nav-pills button {
-  height: 40px;
-  padding: 0 16px;
+  height: 36px;
+  padding: 0 18px;
   border-radius: 999px;
-  border: 1px solid rgba(20, 38, 48, 0.12);
-  background: rgba(255, 255, 255, 0.68);
-  color: var(--ink);
-  font-size: 13px;
+  border: none;
+  background: transparent;
+  color: rgba(20, 38, 48, 0.78);
+  font-size: 14px;
   font-weight: 700;
+  box-shadow: none;
+  white-space: nowrap;
+}
+
+.nav-pills a:hover,
+.nav-pills button:hover {
+  transform: none;
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--accent-strong);
+}
+
+.nav-pills button {
+  background: rgba(20, 38, 48, 0.08);
+}
+
+.nav-pills button:hover {
+  background: rgba(180, 71, 61, 0.12);
+  color: var(--danger);
 }
 
 .page-content {
