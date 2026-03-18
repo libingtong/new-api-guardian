@@ -163,6 +163,17 @@ button {
   align-items: center;
   gap: 8px;
 }
+.advanced-toggle {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+}
+.advanced-fields {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 12px;
+}
 .hint-banner {
   border: 1px dashed var(--line);
   border-radius: 10px;

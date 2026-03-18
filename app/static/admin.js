@@ -103,6 +103,18 @@ function syncRuleFormByAction(actionType) {
   document.querySelectorAll('[data-event-field="true"]').forEach((node) => {
     node.classList.toggle('hidden', isStability);
   });
+  document.querySelectorAll('[data-advanced-field="true"]').forEach((node) => {
+    node.classList.toggle('hidden', isStability);
+  });
+  const advancedBlock = document.getElementById('advancedRuleFields');
+  const advancedToggle = document.getElementById('toggleAdvancedRuleFieldsBtn');
+  if (isStability) {
+    advancedBlock.classList.add('hidden');
+    advancedToggle.classList.add('hidden');
+    advancedToggle.textContent = '显示高级条件';
+  } else {
+    advancedToggle.classList.remove('hidden');
+  }
   document.getElementById('ruleModalDesc').textContent = isStability
     ? '按历史自动禁用次数定义稳定性规则，用于识别反复抖动且需要人工恢复的渠道'
     : '按渠道、模型、状态码、错误码、返回内容组合定义错误事件规则';
@@ -354,6 +366,14 @@ function fillRuleForm(rule) {
   document.getElementById('matchStatusCodes').value = listToText(rule?.match_status_codes || []);
   document.getElementById('matchRequestPaths').value = listToText(rule?.match_request_paths || []);
   syncRuleFormByAction(document.getElementById('ruleActionType').value);
+  const shouldShowAdvanced = Boolean(
+    rule?.match_groups?.length ||
+    rule?.match_error_text?.length ||
+    rule?.match_error_codes?.length ||
+    rule?.match_status_codes?.length ||
+    rule?.match_request_paths?.length
+  );
+  setAdvancedFieldsVisible(shouldShowAdvanced && !isStabilityRule(rule));
 }
 
 function readRuleForm() {
@@ -395,6 +415,13 @@ function hasAnyMatchCondition(payload) {
 
 function isBroadRiskRule(payload) {
   return !payload.match_channel_ids.length && !payload.match_groups.length && !payload.match_models.length;
+}
+
+function setAdvancedFieldsVisible(visible) {
+  const advancedBlock = document.getElementById('advancedRuleFields');
+  const advancedToggle = document.getElementById('toggleAdvancedRuleFieldsBtn');
+  advancedBlock.classList.toggle('hidden', !visible);
+  advancedToggle.textContent = visible ? '隐藏高级条件' : '显示高级条件';
 }
 
 async function loadDashboard() {
@@ -458,6 +485,10 @@ function bindUnstableTable() {
 }
 
 function bindRuleForm() {
+  document.getElementById('toggleAdvancedRuleFieldsBtn').addEventListener('click', () => {
+    const advancedBlock = document.getElementById('advancedRuleFields');
+    setAdvancedFieldsVisible(advancedBlock.classList.contains('hidden'));
+  });
   document.getElementById('ruleActionType').addEventListener('change', (event) => {
     syncRuleFormByAction(event.target.value);
   });
@@ -505,12 +536,14 @@ function bindRuleModal() {
     fillRuleForm(null);
     document.getElementById('ruleActionType').value = 'disable_channel';
     syncRuleFormByAction('disable_channel');
+    setAdvancedFieldsVisible(false);
     openRuleModal('create');
   });
   document.getElementById('openCreateStabilityRuleBtn').addEventListener('click', () => {
     fillRuleForm(null);
     document.getElementById('ruleActionType').value = 'disable_unstable_channel';
     syncRuleFormByAction('disable_unstable_channel');
+    setAdvancedFieldsVisible(false);
     openRuleModal('create');
   });
   document.getElementById('closeRuleModalBtn').addEventListener('click', closeRuleModal);
