@@ -351,6 +351,15 @@ a {
   padding-bottom: 2px;
 }
 
+.column-picker-host {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
 .row-actions {
   grid-column: 1 / -1;
 }

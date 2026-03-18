@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OneAPI 使用量分析</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260318-design-refresh-5" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260318-design-refresh-6" />
 </head>
 <body class="app-shell">
   <div class="page-shell">
@@ -82,7 +82,7 @@
               <h2>模型分布</h2>
               <p>观察当前筛选下的模型请求结构、错误量和活跃 IP 范围。</p>
             </div>
-            <div class="action-cluster" id="modelUsageColumnPicker"></div>
+            <div class="column-picker-host" id="modelUsageColumnPicker"></div>
           </div>
           <div class="table-wrap">
             <table id="modelUsageTable">
@@ -98,7 +98,7 @@
               <h2>排行榜</h2>
               <p>同一筛选条件下快速切换令牌、用户、模型三个维度的活跃度排行。</p>
             </div>
-            <div class="action-cluster" id="rankColumnPicker"></div>
+            <div class="column-picker-host" id="rankColumnPicker"></div>
           </div>
           <div class="table-wrap">
             <table id="rankTable">
@@ -115,7 +115,7 @@
             <h2>最近请求明细</h2>
             <p>用于做落地排查：谁在请求、打到什么模型、是否报错、耗时如何。</p>
           </div>
-          <div class="action-cluster" id="recentColumnPicker"></div>
+          <div class="column-picker-host" id="recentColumnPicker"></div>
         </div>
         <div class="table-wrap">
           <table id="recentTable">
