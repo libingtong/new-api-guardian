@@ -89,6 +89,18 @@
 - IP 白名单
 - 管理页密码验证
 
+### 8. 企业微信群机器人告警
+- 当某个渠道被判定为“不稳定渠道”并进入人工恢复模式时，自动向企业微信群机器人发送告警
+- 告警会带上：
+  - 渠道名称 / 渠道 ID
+  - 触发规则
+  - 统计窗口和阈值
+  - 最近失败模型
+  - 错误码 / 状态码
+  - 最近错误内容
+  - 关联日志 ID
+- webhook 发送失败不会阻断禁用动作，避免告警链路反过来影响治理主流程
+
 ## 为什么它适合 `new-api`
 
 这个项目不是去改 `new-api` 本体，而是做一个“外挂式控制层”。
@@ -391,6 +403,15 @@ cp .env.example .env
 
 ```bash
 docker compose up -d --build
+
+如果你希望在“不稳定渠道”被禁用时自动提醒人工处理，可以额外配置企业微信群机器人：
+
+```yaml
+- WECOM_ROBOT_WEBHOOK=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=your_key
+- WECOM_NOTIFY_TIMEOUT_SECONDS=5
+```
+
+配置后，只有 `disable_unstable_channel` 真正执行成功时才会发送群消息。
 ```
 
 4. 打开页面
@@ -635,6 +656,25 @@ docker compose -f docker-compose.localtest.yml up -d --build
 - `NEW_API_ACCESS_TOKEN`
 - `NEW_API_USER_ID`
 - `NEW_API_REFRESH_TIMEOUT_SECONDS`
+- `WECOM_ROBOT_WEBHOOK`
+- `WECOM_NOTIFY_TIMEOUT_SECONDS`
+
+### 企业微信群机器人
+
+- `WECOM_ROBOT_WEBHOOK`
+  企业微信群机器人的 webhook 地址。留空则不发送群通知。
+- `WECOM_NOTIFY_TIMEOUT_SECONDS`
+  告警请求超时时间，默认 `5` 秒。
+
+触发时机：
+
+- 仅在渠道被判定为 `disable_unstable_channel`，并且数据库事务已经成功提交后发送。
+- 普通的 `disable_channel`、`disable_model`、自动恢复不会发送这类人工处理告警。
+
+设计取舍：
+
+- 告警是附加能力，不是主链路。
+- 即使企业微信群 webhook 超时、报错或返回失败，也不会回滚禁用动作。
 
 ## `new-api` 缓存刷新机制
 
