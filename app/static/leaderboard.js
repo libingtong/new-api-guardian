@@ -176,11 +176,9 @@ function renderColumnPicker() {
   const mount = document.getElementById('leaderboardColumnPicker');
   const visible = new Set(getVisibleColumns());
   mount.innerHTML = `
-    <details class="column-picker">
-      <summary>
-        <button class="ghost-btn mini-btn" type="button">列设置</button>
-      </summary>
-      <div class="column-picker-panel">
+    <div class="column-picker" data-column-picker="leaderboard">
+      <button class="ghost-btn mini-btn column-picker-trigger" type="button" aria-expanded="false">列设置</button>
+      <div class="column-picker-panel hidden">
         <h4>排行榜列</h4>
         <div class="column-picker-grid">
           ${LEADERBOARD_COLUMNS.map((column) => `
@@ -191,7 +189,7 @@ function renderColumnPicker() {
           `).join('')}
         </div>
       </div>
-    </details>
+    </div>
   `;
 }
 
@@ -263,6 +261,18 @@ function bindDetails() {
 
 function bindColumnPicker() {
   renderColumnPicker();
+  document.addEventListener('click', (event) => {
+    const trigger = event.target.closest('.column-picker-trigger');
+    const clickedInsidePanel = event.target.closest('.column-picker-panel');
+    if (!trigger && clickedInsidePanel) return;
+    document.querySelectorAll('.column-picker').forEach((picker) => {
+      const panel = picker.querySelector('.column-picker-panel');
+      const button = picker.querySelector('.column-picker-trigger');
+      const shouldOpen = trigger && picker === trigger.closest('.column-picker') ? panel.classList.contains('hidden') : false;
+      panel.classList.toggle('hidden', !shouldOpen);
+      button.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+    });
+  });
   document.addEventListener('change', (event) => {
     const checkbox = event.target.closest('#leaderboardColumnPicker input[type="checkbox"]');
     if (!checkbox) return;

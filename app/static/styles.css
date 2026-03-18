@@ -564,12 +564,9 @@ tr:hover td {
   position: relative;
 }
 
-.column-picker summary {
-  list-style: none;
-}
-
-.column-picker summary::-webkit-details-marker {
-  display: none;
+.column-picker-trigger[aria-expanded="true"] {
+  background: rgba(14, 124, 134, 0.12);
+  color: var(--accent-strong);
 }
 
 .column-picker-panel {
