@@ -191,7 +191,6 @@ function renderOverview(data) {
     ['错误率', `${data.error_rate}%`],
     ['平均耗时(ms)', Number(data.avg_use_time_ms || 0).toFixed(2)],
     ['访问 IP 数', num(data.unique_ip_count)],
-    ['访问 IP（Top5）', text(data.ip_list)],
   ];
 
   const wrap = document.getElementById('overviewCards');
