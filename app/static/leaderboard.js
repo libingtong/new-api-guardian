@@ -1,3 +1,36 @@
+const LEADERBOARD_STATE = {
+  items: [],
+};
+
+const LEADERBOARD_COLUMN_STORAGE_KEY = 'guardian.leaderboard.columns';
+
+const LEADERBOARD_COLUMNS = [
+  { key: 'rank', label: '排名', render: (r) => r.rank },
+  { key: 'token', label: '令牌', render: (r) => `${r.token_id} - ${r.token_name || '-'}` },
+  { key: 'total_tokens', label: '总 Tokens', render: (r) => num(r.total_tokens) },
+  { key: 'requests', label: '请求数', render: (r) => num(r.requests) },
+  { key: 'total_quota', label: '总 Quota', render: (r) => num(r.total_quota) },
+  { key: 'active_days', label: '活跃天数', render: (r) => num(r.active_days) },
+  { key: 'model_count', label: '模型数', render: (r) => num(r.model_count) },
+  { key: 'top_model', label: '主力模型', render: (r) => r.top_model || '-' },
+  { key: 'models_used_top5', label: '模型列表（Top5）', render: (r) => (r.models_used_top5 || []).join(', ') || '-' },
+  { key: 'unique_ip_count', label: 'IP 数量', render: (r) => num(r.unique_ip_count) },
+  { key: 'ip_list', label: '访问 IP（Top5）', render: (r) => text(r.ip_list) },
+  {
+    key: 'detail',
+    label: '详情',
+    render: (r) => `
+      <button
+        type="button"
+        class="link-btn detail-btn"
+        data-token-id="${r.token_id}"
+        data-label="${encodeURIComponent(`${r.token_id} - ${r.token_name || '-'}`)}"
+      >详情</button>
+    `,
+  },
+  { key: 'workload_index', label: '工作量指数', render: (r) => `<span class="score-pill">${r.workload_index}</span>` },
+];
+
 function toLocalInputValue(ts) {
   const d = new Date(ts * 1000);
   const pad = (n) => String(n).padStart(2, '0');
@@ -46,6 +79,23 @@ async function getJson(url, params = {}) {
   const r = await fetch(full);
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
+}
+
+function getVisibleColumns() {
+  const all = LEADERBOARD_COLUMNS.map((item) => item.key);
+  try {
+    const raw = localStorage.getItem(LEADERBOARD_COLUMN_STORAGE_KEY);
+    if (!raw) return all;
+    const parsed = JSON.parse(raw);
+    const filtered = parsed.filter((item) => all.includes(item));
+    return filtered.length ? filtered : all;
+  } catch {
+    return all;
+  }
+}
+
+function saveVisibleColumns(keys) {
+  localStorage.setItem(LEADERBOARD_COLUMN_STORAGE_KEY, JSON.stringify(keys));
 }
 
 function initDefaultTime() {
@@ -122,36 +172,45 @@ async function openIpDetail(tokenId, label) {
   renderDetailTable(data.items || []);
 }
 
-function renderTable(items) {
-  const tbody = document.querySelector('#leaderboardTable tbody');
-  tbody.innerHTML = items.map((r) => {
-    const models = (r.models_used_top5 || []).join(', ');
-    const label = `${r.token_id} - ${r.token_name || '-'}`;
-    return `
-      <tr>
-        <td>${r.rank}</td>
-        <td>${label}</td>
-        <td>${num(r.total_tokens)}</td>
-        <td>${num(r.requests)}</td>
-        <td>${num(r.total_quota)}</td>
-        <td>${num(r.active_days)}</td>
-        <td>${num(r.model_count)}</td>
-        <td>${r.top_model || '-'}</td>
-        <td>${models || '-'}</td>
-        <td>${num(r.unique_ip_count)}</td>
-        <td>${text(r.ip_list)}</td>
-        <td>
-          <button
-            type="button"
-            class="link-btn detail-btn"
-            data-token-id="${r.token_id}"
-            data-label="${encodeURIComponent(label)}"
-          >详情</button>
-        </td>
-        <td><span class="score-pill">${r.workload_index}</span></td>
-      </tr>
-    `;
-  }).join('');
+function renderColumnPicker() {
+  const mount = document.getElementById('leaderboardColumnPicker');
+  const visible = new Set(getVisibleColumns());
+  mount.innerHTML = `
+    <details class="column-picker">
+      <summary>
+        <button class="ghost-btn mini-btn" type="button">列设置</button>
+      </summary>
+      <div class="column-picker-panel">
+        <h4>排行榜列</h4>
+        <div class="column-picker-grid">
+          ${LEADERBOARD_COLUMNS.map((column) => `
+            <label>
+              <input type="checkbox" value="${column.key}" ${visible.has(column.key) ? 'checked' : ''} />
+              <span>${column.label}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+function renderTable() {
+  const table = document.getElementById('leaderboardTable');
+  const thead = table.querySelector('thead');
+  const tbody = table.querySelector('tbody');
+  const visibleKeys = getVisibleColumns();
+  const columns = LEADERBOARD_COLUMNS.filter((column) => visibleKeys.includes(column.key));
+  thead.innerHTML = `<tr>${columns.map((column) => `<th>${column.label}</th>`).join('')}</tr>`;
+  if (!LEADERBOARD_STATE.items.length) {
+    tbody.innerHTML = `<tr><td colspan="${Math.max(columns.length, 1)}">暂无排行榜数据</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = LEADERBOARD_STATE.items.map((row) => `
+    <tr>
+      ${columns.map((column) => `<td>${column.render(row)}</td>`).join('')}
+    </tr>
+  `).join('');
 }
 
 async function loadGroups() {
@@ -176,7 +235,8 @@ async function run() {
     limit: document.getElementById('limitInput').value || 100,
   };
   const data = await getJson('/api/leaderboard', params);
-  renderTable(data.items || []);
+  LEADERBOARD_STATE.items = data.items || [];
+  renderTable();
 }
 
 function bindModal() {
@@ -201,10 +261,27 @@ function bindDetails() {
   });
 }
 
+function bindColumnPicker() {
+  renderColumnPicker();
+  document.addEventListener('change', (event) => {
+    const checkbox = event.target.closest('#leaderboardColumnPicker input[type="checkbox"]');
+    if (!checkbox) return;
+    const selected = Array.from(document.querySelectorAll('#leaderboardColumnPicker input[type="checkbox"]:checked'))
+      .map((node) => node.value);
+    if (!selected.length) {
+      checkbox.checked = true;
+      return;
+    }
+    saveVisibleColumns(selected);
+    renderTable();
+  });
+}
+
 async function main() {
   initDefaultTime();
   bindModal();
   bindDetails();
+  bindColumnPicker();
   await loadGroups();
   document.getElementById('runBtn').addEventListener('click', run);
   await run();

@@ -4,121 +4,128 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OneAPI 使用量分析</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260318-design-refresh-2" />
 </head>
-<body>
-  <header>
-    <h1>OneAPI 使用量分析面板</h1>
-    <p>按令牌分析使用量、模型分布与排行榜</p>
-    <p><a href="{{ admin_path }}">进入熔断控制台</a> · <a href="/leaderboard">进入独立排行榜页面</a></p>
-  </header>
+<body class="app-shell">
+  <div class="page-shell">
+    <header class="hero-shell">
+      <div class="hero-copy">
+        <span class="hero-eyebrow">Analytics Workspace</span>
+        <h1>OneAPI 使用量分析面板</h1>
+        <p>把令牌、用户、模型和 IP 的使用画像放到一个统一视图里，帮助你快速定位“谁在消耗、谁在异常、谁最值得关注”。</p>
+      </div>
+      <div class="hero-side">
+        <nav class="nav-links nav-pills">
+          <a href="/leaderboard">排行榜</a>
+          <a href="{{ admin_path }}">治理控制台</a>
+        </nav>
+        <div class="hero-note">
+          <strong>适合日常运营</strong>
+          <span>同一套筛选条件会同步驱动总览、模型分布、排行榜和最近请求明细。</span>
+        </div>
+      </div>
+    </header>
 
-  <section class="panel">
-    <h2>筛选条件</h2>
-    <div class="grid">
-      <label>开始时间
-        <input type="datetime-local" id="startTime" />
-      </label>
-      <label>结束时间
-        <input type="datetime-local" id="endTime" />
-      </label>
-      <label>令牌
-        <select id="tokenSelect"><option value="">全部</option></select>
-      </label>
-      <label>用户
-        <select id="userSelect"><option value="">全部</option></select>
-      </label>
-      <label>模型
-        <select id="modelSelect"><option value="">全部</option></select>
-      </label>
-      <label>分组
-        <select id="groupSelect"><option value="">全部</option></select>
-      </label>
-      <label>排行榜维度
-        <select id="rankDimension">
-          <option value="token">令牌</option>
-          <option value="user">用户</option>
-          <option value="model">模型</option>
-        </select>
-      </label>
-      <label>排行榜指标
-        <select id="rankMetric">
-          <option value="quota">Quota</option>
-          <option value="tokens">Tokens</option>
-          <option value="requests">请求数</option>
-        </select>
-      </label>
-    </div>
-    <div class="actions">
-      <button id="runBtn">查询</button>
-    </div>
-  </section>
+    <main class="page-content">
+      <section class="panel panel-hero">
+        <div class="section-title">
+          <div>
+            <h2>筛选工作台</h2>
+            <p>先定范围，再看总览、排行榜和最近请求，避免每个模块各用一套条件。</p>
+          </div>
+          <div class="action-cluster">
+            <button id="runBtn">更新视图</button>
+          </div>
+        </div>
+        <div class="filters-grid">
+          <label>开始时间
+            <input type="datetime-local" id="startTime" />
+          </label>
+          <label>结束时间
+            <input type="datetime-local" id="endTime" />
+          </label>
+          <label>令牌
+            <select id="tokenSelect"><option value="">全部</option></select>
+          </label>
+          <label>用户
+            <select id="userSelect"><option value="">全部</option></select>
+          </label>
+          <label>模型
+            <select id="modelSelect"><option value="">全部</option></select>
+          </label>
+          <label>分组
+            <select id="groupSelect"><option value="">全部</option></select>
+          </label>
+          <label>排行榜维度
+            <select id="rankDimension">
+              <option value="token">令牌</option>
+              <option value="user">用户</option>
+              <option value="model">模型</option>
+            </select>
+          </label>
+          <label>排行榜指标
+            <select id="rankMetric">
+              <option value="quota">Quota</option>
+              <option value="tokens">Tokens</option>
+              <option value="requests">请求数</option>
+            </select>
+          </label>
+        </div>
+      </section>
 
-  <section class="cards" id="overviewCards"></section>
+      <section class="cards metrics-grid" id="overviewCards"></section>
 
-  <section class="panel">
-    <h2>模型分布（当前筛选）</h2>
-    <div class="table-wrap">
-      <table id="modelUsageTable">
-        <thead>
-          <tr>
-            <th>模型</th>
-            <th>请求数</th>
-            <th>总 Tokens</th>
-            <th>总 Quota</th>
-            <th>错误数</th>
-            <th>访问 IP 数</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
+      <section class="content-grid analytics-grid">
+        <section class="panel">
+          <div class="section-title compact">
+            <div>
+              <h2>模型分布</h2>
+              <p>观察当前筛选下的模型请求结构、错误量和活跃 IP 范围。</p>
+            </div>
+            <div class="action-cluster" id="modelUsageColumnPicker"></div>
+          </div>
+          <div class="table-wrap">
+            <table id="modelUsageTable">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
 
-  <section class="panel">
-    <h2>排行榜</h2>
-    <div class="table-wrap">
-      <table id="rankTable">
-        <thead>
-          <tr>
-            <th>名称</th>
-            <th>请求数</th>
-            <th>总 Tokens</th>
-            <th>总 Quota</th>
-            <th>错误数</th>
-            <th>IP 数量</th>
-            <th>访问 IP（Top5）</th>
-            <th>详情</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
+        <section class="panel">
+          <div class="section-title compact">
+            <div>
+              <h2>排行榜</h2>
+              <p>同一筛选条件下快速切换令牌、用户、模型三个维度的活跃度排行。</p>
+            </div>
+            <div class="action-cluster" id="rankColumnPicker"></div>
+          </div>
+          <div class="table-wrap">
+            <table id="rankTable">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
 
-  <section class="panel">
-    <h2>最近请求明细</h2>
-    <div class="table-wrap">
-      <table id="recentTable">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>时间</th>
-            <th>用户</th>
-            <th>令牌</th>
-            <th>模型</th>
-            <th>IP</th>
-            <th>类型</th>
-            <th>Quota</th>
-            <th>Prompt</th>
-            <th>Completion</th>
-            <th>耗时(ms)</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
+      <section class="panel">
+        <div class="section-title compact">
+          <div>
+            <h2>最近请求明细</h2>
+            <p>用于做落地排查：谁在请求、打到什么模型、是否报错、耗时如何。</p>
+          </div>
+          <div class="action-cluster" id="recentColumnPicker"></div>
+        </div>
+        <div class="table-wrap">
+          <table id="recentTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
 
   <div class="modal hidden" id="ipDetailModal">
     <div class="modal-backdrop" data-close-modal="true"></div>
@@ -150,6 +157,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=20260313-ip-detail-1"></script>
+  <script src="/static/app.js?v=20260318-design-refresh-2"></script>
 </body>
 </html>

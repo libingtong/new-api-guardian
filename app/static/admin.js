@@ -558,12 +558,38 @@ function bindLogout() {
   });
 }
 
+function bindDashboardViews() {
+  const tabs = document.querySelectorAll('[data-dashboard-view]');
+  const panels = document.querySelectorAll('[data-dashboard-view-panel]');
+  const activateView = (target) => {
+    tabs.forEach((node) => {
+      const isActive = node.dataset.dashboardView === target;
+      node.classList.toggle('active', isActive);
+      node.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+    panels.forEach((panel) => {
+      const isActive = panel.dataset.dashboardViewPanel === target;
+      panel.classList.toggle('active', isActive);
+      panel.classList.toggle('hidden', !isActive);
+      panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+    });
+  };
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      activateView(tab.dataset.dashboardView);
+    });
+  });
+  const initialActive = Array.from(tabs).find((tab) => tab.classList.contains('active'))?.dataset.dashboardView || 'live';
+  activateView(initialActive);
+}
+
 async function main() {
   bindRuleTable();
   bindUnstableTable();
   bindRuleForm();
   bindRuleModal();
   bindLogout();
+  bindDashboardViews();
   fillRuleForm(null);
   await loadDashboard();
 }

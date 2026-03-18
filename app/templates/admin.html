@@ -3,100 +3,283 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>渠道熔断与恢复控制台</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+  <title>渠道熔断与自动恢复控制台</title>
+  <link rel="stylesheet" href="/static/styles.css?v=20260318-design-refresh-2" />
 </head>
-<body>
-  <header>
-    <div class="topbar">
-      <div>
+<body class="app-shell">
+  <div class="page-shell">
+    <header class="hero-shell">
+      <div class="hero-copy">
+        <span class="hero-eyebrow">New API Guardian</span>
         <h1>渠道熔断与自动恢复控制台</h1>
-        <p>扫描错误日志、自动禁用异常渠道，并对禁用渠道做恢复探测</p>
+        <p>把错误治理、恢复探测和人工接管放进同一个操作台，避免靠日志堆表格硬撑日常运维。</p>
       </div>
-      <nav class="nav-links">
-        <a href="/analytics">使用量分析</a>
-        <a href="/leaderboard">排行榜</a>
-        <button class="ghost-btn mini-btn" id="logoutBtn" type="button">退出</button>
-      </nav>
-    </div>
-  </header>
-
-  <section class="cards" id="summaryCards"></section>
-  <section class="panel hidden" id="refreshWarningPanel">
-    <div class="hint-banner warning" id="refreshWarningText"></div>
-  </section>
-
-  <section class="panel split">
-    <div>
-      <div class="section-title">
-        <div>
-          <h2>规则配置</h2>
-          <p>规则分为两类：错误事件规则和稳定性规则，分别处理实时故障和反复抖动的渠道</p>
-        </div>
-        <div class="inline-actions">
-          <button id="openCreateErrorRuleBtn" type="button">新增错误规则</button>
-          <button class="ghost-btn" id="openCreateStabilityRuleBtn" type="button">新增稳定性规则</button>
-          <button class="ghost-btn" id="refreshBtn" type="button">刷新</button>
+      <div class="hero-side">
+        <nav class="nav-links nav-pills">
+          <a href="/leaderboard">排行榜</a>
+          <a href="/analytics">使用量分析</a>
+          <button class="ghost-btn mini-btn" id="logoutBtn" type="button">退出</button>
+        </nav>
+        <div class="hero-note">
+          <strong>控制原则</strong>
+          <span>先读日志，再做主动探测，确认失败后才执行治理动作。</span>
         </div>
       </div>
-      <div class="hint-banner">
-        错误事件规则用于“禁用渠道 / 禁用模型”；稳定性规则用于“多次自动禁用后转为人工恢复模式”。
-      </div>
-      <div class="hint-banner warning">
-        风险提醒：不要创建“全空条件”或范围过宽的规则。未限定渠道、分组、模型的规则可能误伤大量渠道。
-      </div>
-    </div>
+    </header>
 
-    <div>
-      <div class="section-title">
-        <div>
-          <h2>错误事件规则</h2>
-          <p>基于错误日志内容命中后执行动作，适合处理接口报错、上游无返回、特定状态码等问题</p>
+    <main class="page-content">
+      <section class="cards metrics-grid" id="summaryCards"></section>
+
+      <section class="panel hidden" id="refreshWarningPanel">
+        <div class="hint-banner warning" id="refreshWarningText"></div>
+      </section>
+
+      <section class="panel panel-hero">
+        <div class="section-title">
+          <div>
+            <h2>规则工作台</h2>
+            <p>错误事件规则负责实时故障治理，稳定性规则负责接管反复抖动、需要人工恢复的渠道。</p>
+          </div>
+          <div class="action-cluster">
+            <button id="openCreateErrorRuleBtn" type="button">新增错误规则</button>
+            <button class="ghost-btn" id="openCreateStabilityRuleBtn" type="button">新增稳定性规则</button>
+            <button class="ghost-btn" id="refreshBtn" type="button">刷新数据</button>
+          </div>
         </div>
-      </div>
-      <div class="table-wrap">
-        <table id="errorRulesTable" class="rules-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>规则</th>
-              <th>状态</th>
-              <th>动作</th>
-              <th>阈值</th>
-              <th>匹配摘要</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
+        <div class="callout-grid">
+          <div class="hint-banner">
+            错误事件规则用于“禁用渠道 / 禁用模型”；稳定性规则用于“多次自动禁用后转为人工恢复模式”。
+          </div>
+          <div class="hint-banner warning">
+            风险提醒：不要创建全空条件或范围过宽的规则。未限定渠道、分组、模型的规则可能误伤大量渠道。
+          </div>
+        </div>
+      </section>
 
-  <section class="panel">
-    <div class="section-title">
-      <div>
-        <h2>稳定性规则</h2>
-        <p>当某个渠道在一定时间内反复被自动禁用时，将其转入更严格的人工恢复模式</p>
-      </div>
-    </div>
-    <div class="table-wrap">
-      <table id="stabilityRulesTable" class="rules-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>规则</th>
-            <th>状态</th>
-            <th>动作</th>
-            <th>阈值</th>
-            <th>适用范围</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
+      <section class="content-grid rules-grid">
+        <section class="panel">
+          <div class="section-title">
+            <div>
+              <h2>错误事件规则</h2>
+              <p>按错误码、状态码、错误文本匹配实时异常，适合处理上游无返回、超时、特定接口报错。</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="errorRulesTable" class="rules-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>规则</th>
+                  <th>状态</th>
+                  <th>动作</th>
+                  <th>阈值</th>
+                  <th>匹配摘要</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-title">
+            <div>
+              <h2>稳定性规则</h2>
+              <p>当某个渠道在时间窗口里被反复自动禁用，系统把它升级为不稳定渠道，转入人工恢复模式。</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="stabilityRulesTable" class="rules-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>规则</th>
+                  <th>状态</th>
+                  <th>动作</th>
+                  <th>阈值</th>
+                  <th>适用范围</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <div>
+            <h2>治理视图</h2>
+            <p>把运行态拆成三个工作面：实时治理、恢复观察、审计追踪。</p>
+          </div>
+        </div>
+        <div class="segmented-control" id="dashboardViewTabs">
+          <button type="button" class="segment-btn active" data-dashboard-view="live">实时治理</button>
+          <button type="button" class="segment-btn" data-dashboard-view="recovery">恢复观察</button>
+          <button type="button" class="segment-btn" data-dashboard-view="audit">审计追踪</button>
+        </div>
+
+        <div class="dashboard-view active" data-dashboard-view-panel="live">
+          <div class="content-grid dual-panels">
+            <section class="subpanel">
+              <div class="section-title compact">
+                <div>
+                  <h3>自动禁用渠道</h3>
+                  <p>展示由当前服务禁用且仍处于恢复探测队列中的渠道。</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table id="disabledTable">
+                  <thead>
+                    <tr>
+                      <th>渠道 ID</th>
+                      <th>名称</th>
+                      <th>状态</th>
+                      <th>探测模型</th>
+                      <th>禁用原因</th>
+                      <th>禁用时间</th>
+                      <th>最近探测</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="subpanel">
+              <div class="section-title compact">
+                <div>
+                  <h3>不稳定渠道</h3>
+                  <p>进入人工恢复模式的渠道会在这里集中处理。</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table id="unstableTable">
+                  <thead>
+                    <tr>
+                      <th>渠道 ID</th>
+                      <th>名称</th>
+                      <th>恢复策略</th>
+                      <th>窗口内禁用次数</th>
+                      <th>禁用原因</th>
+                      <th>禁用时间</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="dashboard-view" data-dashboard-view-panel="recovery">
+          <div class="content-grid dual-panels">
+            <section class="subpanel">
+              <div class="section-title compact">
+                <div>
+                  <h3>渠道恢复探测</h3>
+                  <p>渠道级恢复每 10 秒探测一次，连续 3 次成功后自动恢复。</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table id="recoveryTable">
+                  <thead>
+                    <tr>
+                      <th>渠道 ID</th>
+                      <th>名称</th>
+                      <th>连续成功</th>
+                      <th>探测结果</th>
+                      <th>最近错误</th>
+                      <th>最近探测时间</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="subpanel">
+              <div class="section-title compact">
+                <div>
+                  <h3>模型恢复探测</h3>
+                  <p>模型级恢复每 10 秒探测一次被移除模型，连续 3 次成功后写回。</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table id="modelRecoveryTable">
+                  <thead>
+                    <tr>
+                      <th>渠道 ID</th>
+                      <th>名称</th>
+                      <th>模型</th>
+                      <th>连续成功</th>
+                      <th>探测结果</th>
+                      <th>最近错误</th>
+                      <th>最近探测时间</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="dashboard-view" data-dashboard-view-panel="audit">
+          <div class="content-grid dual-panels">
+            <section class="subpanel">
+              <div class="section-title compact">
+                <div>
+                  <h3>动作审计</h3>
+                  <p>记录自动禁用、自动恢复和人工恢复动作。</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table id="actionsTable">
+                  <thead>
+                    <tr>
+                      <th>时间</th>
+                      <th>渠道</th>
+                      <th>动作</th>
+                      <th>状态变化</th>
+                      <th>原因</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="subpanel">
+              <div class="section-title compact">
+                <div>
+                  <h3>命中记录</h3>
+                  <p>最近命中的错误日志与规则映射，用来回溯触发链路。</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table id="hitsTable">
+                  <thead>
+                    <tr>
+                      <th>时间</th>
+                      <th>规则</th>
+                      <th>渠道</th>
+                      <th>日志 ID</th>
+                      <th>摘要</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
 
   <div class="modal hidden" id="ruleModal">
     <div class="modal-backdrop" data-close-rule-modal="true"></div>
@@ -173,151 +356,6 @@
     </div>
   </div>
 
-  <section class="panel">
-    <div class="section-title">
-      <div>
-        <h2>自动禁用渠道</h2>
-        <p>仅展示由当前服务禁用且仍处于恢复探测队列中的渠道</p>
-      </div>
-    </div>
-    <div class="table-wrap">
-      <table id="disabledTable">
-        <thead>
-          <tr>
-            <th>渠道 ID</th>
-            <th>名称</th>
-            <th>状态</th>
-            <th>探测模型</th>
-            <th>禁用原因</th>
-            <th>禁用时间</th>
-            <th>最近探测</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="panel">
-    <div class="section-title">
-      <div>
-        <h2>恢复探测状态</h2>
-        <p>渠道级恢复，每 10 秒探测一次，连续 3 次成功后自动恢复</p>
-      </div>
-    </div>
-    <div class="table-wrap">
-      <table id="recoveryTable">
-        <thead>
-          <tr>
-            <th>渠道 ID</th>
-            <th>名称</th>
-            <th>连续成功</th>
-            <th>探测结果</th>
-            <th>最近错误</th>
-            <th>最近探测时间</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="panel">
-    <div class="section-title">
-      <div>
-        <h2>不稳定渠道</h2>
-        <p>在窗口内多次被自动禁用的渠道会进入人工恢复模式，不再自动恢复</p>
-      </div>
-    </div>
-    <div class="table-wrap">
-      <table id="unstableTable">
-        <thead>
-          <tr>
-            <th>渠道 ID</th>
-            <th>名称</th>
-            <th>恢复策略</th>
-            <th>窗口内禁用次数</th>
-            <th>禁用原因</th>
-            <th>禁用时间</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="panel">
-    <div class="section-title">
-      <div>
-        <h2>模型恢复探测状态</h2>
-        <p>模型级恢复，每 10 秒探测一次被移除模型，连续 3 次成功后写回</p>
-      </div>
-    </div>
-    <div class="table-wrap">
-      <table id="modelRecoveryTable">
-        <thead>
-          <tr>
-            <th>渠道 ID</th>
-            <th>名称</th>
-            <th>模型</th>
-            <th>连续成功</th>
-            <th>探测结果</th>
-            <th>最近错误</th>
-            <th>最近探测时间</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="panel">
-    <div class="section-title">
-      <div>
-        <h2>动作审计</h2>
-        <p>记录自动禁用与自动恢复动作</p>
-      </div>
-    </div>
-    <div class="table-wrap">
-      <table id="actionsTable">
-        <thead>
-          <tr>
-            <th>时间</th>
-            <th>渠道</th>
-            <th>动作</th>
-            <th>状态变化</th>
-            <th>原因</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="panel">
-    <div class="section-title">
-      <div>
-        <h2>命中记录</h2>
-        <p>最近命中的错误日志与规则映射</p>
-      </div>
-    </div>
-    <div class="table-wrap">
-      <table id="hitsTable">
-        <thead>
-          <tr>
-            <th>时间</th>
-            <th>规则</th>
-            <th>渠道</th>
-            <th>日志 ID</th>
-            <th>摘要</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <script src="/static/admin.js?v=20260317-breaker-1"></script>
+  <script src="/static/admin.js?v=20260318-design-refresh-2"></script>
 </body>
 </html>

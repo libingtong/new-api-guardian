@@ -4,25 +4,46 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>管理页登录</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260318-design-refresh-2" />
 </head>
-<body>
-  <header>
-    <h1>管理页登录</h1>
-    <p>请输入管理密码后进入控制台</p>
-  </header>
-
-  <section class="panel auth-panel">
-    <form id="adminLoginForm" class="auth-form">
-      <label>管理密码
-        <input id="adminPassword" type="password" autocomplete="current-password" required />
-      </label>
-      <div class="actions row-actions">
-        <button type="submit">登录</button>
+<body class="app-shell">
+  <div class="page-shell">
+    <header class="hero-shell">
+      <div class="hero-copy">
+        <span class="hero-eyebrow">Admin Access</span>
+        <h1>治理控制台登录</h1>
+        <p>输入管理密码后进入控制台。登录页沿用与分析页、排行榜一致的视觉语言，避免切换时像跳进另一套系统。</p>
       </div>
-      <p class="auth-error hidden" id="authError">密码错误，请重试。</p>
-    </form>
-  </section>
+      <div class="hero-side">
+        <nav class="nav-links nav-pills">
+          <a href="/leaderboard">排行榜</a>
+          <a href="/analytics">使用量分析</a>
+        </nav>
+        <div class="hero-note">
+          <strong>受保护入口</strong>
+          <span>如果同时启用了 IP 白名单和密码验证，只有满足两层条件的访问才会进入治理控制台。</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="panel auth-panel">
+      <div class="section-title compact">
+        <div>
+          <h2>身份验证</h2>
+          <p>请输入管理密码后进入控制台。</p>
+        </div>
+      </div>
+      <form id="adminLoginForm" class="auth-form">
+        <label>管理密码
+          <input id="adminPassword" type="password" autocomplete="current-password" required />
+        </label>
+        <div class="actions row-actions">
+          <button type="submit">登录</button>
+        </div>
+        <p class="auth-error hidden" id="authError">密码错误，请重试。</p>
+      </form>
+    </section>
+  </div>
 
   <script>
     const adminPath = {{ admin_path|tojson }};
