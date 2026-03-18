@@ -242,7 +242,10 @@ function renderDetailSummary(summary) {
   ];
   const wrap = document.getElementById('ipDetailSummary');
   wrap.innerHTML = cards.map(([k, v]) => `
-    <div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>
+    <article class="detail-stat">
+      <div class="detail-stat-label">${k}</div>
+      <div class="detail-stat-value">${v}</div>
+    </article>
   `).join('');
 }
 
