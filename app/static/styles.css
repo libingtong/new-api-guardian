@@ -61,6 +61,7 @@ a {
 .hero-shell {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  align-items: center;
   gap: 24px;
   padding: 28px;
   border-radius: 34px;
@@ -70,6 +71,13 @@ a {
   border: 1px solid rgba(255, 255, 255, 0.7);
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(18px);
+}
+
+.hero-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100%;
 }
 
 .hero-copy h1 {
@@ -104,8 +112,10 @@ a {
 .hero-side {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 20px;
+  justify-content: center;
+  align-items: stretch;
+  gap: 16px;
+  min-height: 100%;
 }
 
 .hero-note {
@@ -139,6 +149,7 @@ a {
 .nav-pills {
   display: inline-flex;
   align-self: flex-end;
+  align-items: center;
   flex-wrap: nowrap;
   justify-content: flex-end;
   gap: 6px;
@@ -152,6 +163,9 @@ a {
 
 .nav-pills a,
 .nav-pills button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   height: 36px;
   padding: 0 18px;
   border-radius: 999px;
@@ -721,6 +735,7 @@ tr:hover td {
   }
 
   .nav-pills {
+    align-self: flex-start;
     justify-content: flex-start;
   }
 
