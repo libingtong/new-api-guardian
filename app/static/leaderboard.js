@@ -17,7 +17,7 @@ const LEADERBOARD_DEFAULT_COLUMNS = [
 
 const LEADERBOARD_COLUMNS = [
   { key: 'rank', label: '排名', render: (r) => r.rank },
-  { key: 'token', label: '令牌', render: (r) => `${r.token_id} - ${r.token_name || '-'}` },
+  { key: 'token', label: '令牌', render: (r) => `${r.token_name || '-'}（${r.token_id}）` },
   { key: 'total_tokens', label: '总 Tokens', render: (r) => num(r.total_tokens) },
   { key: 'requests', label: '请求数', render: (r) => num(r.requests) },
   { key: 'total_quota', label: '总 Quota', render: (r) => num(r.total_quota) },
@@ -35,7 +35,7 @@ const LEADERBOARD_COLUMNS = [
         type="button"
         class="link-btn detail-btn"
         data-token-id="${r.token_id}"
-        data-label="${encodeURIComponent(`${r.token_id} - ${r.token_name || '-'}`)}"
+        data-label="${encodeURIComponent(`${r.token_name || '-'}（${r.token_id}）`)}"
       >详情</button>
     `,
   },
