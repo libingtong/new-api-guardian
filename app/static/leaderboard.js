@@ -2,7 +2,18 @@ const LEADERBOARD_STATE = {
   items: [],
 };
 
-const LEADERBOARD_COLUMN_STORAGE_KEY = 'guardian.leaderboard.columns';
+const LEADERBOARD_COLUMN_STORAGE_KEY = 'guardian.leaderboard.columns.v2';
+const LEADERBOARD_DEFAULT_COLUMNS = [
+  'rank',
+  'token',
+  'total_tokens',
+  'requests',
+  'top_model',
+  'unique_ip_count',
+  'ip_list',
+  'detail',
+  'workload_index',
+];
 
 const LEADERBOARD_COLUMNS = [
   { key: 'rank', label: '排名', render: (r) => r.rank },
@@ -85,12 +96,12 @@ function getVisibleColumns() {
   const all = LEADERBOARD_COLUMNS.map((item) => item.key);
   try {
     const raw = localStorage.getItem(LEADERBOARD_COLUMN_STORAGE_KEY);
-    if (!raw) return all;
+    if (!raw) return LEADERBOARD_DEFAULT_COLUMNS.filter((item) => all.includes(item));
     const parsed = JSON.parse(raw);
     const filtered = parsed.filter((item) => all.includes(item));
-    return filtered.length ? filtered : all;
+    return filtered.length ? filtered : LEADERBOARD_DEFAULT_COLUMNS.filter((item) => all.includes(item));
   } catch {
-    return all;
+    return LEADERBOARD_DEFAULT_COLUMNS.filter((item) => all.includes(item));
   }
 }
 
