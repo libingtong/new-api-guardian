@@ -136,29 +136,29 @@
             <option value="disable_unstable_channel">禁用不稳定渠道（人工恢复）</option>
           </select>
         </label>
-        <label>指定渠道 ID
-          <textarea id="matchChannelIds" placeholder="逗号或换行分隔"></textarea>
+        <label data-event-field="true">错误文本关键字
+          <textarea id="matchErrorText" placeholder="例如：上游没有返回消息"></textarea>
         </label>
-        <label>指定模型
-          <textarea id="matchModels" placeholder="例如：glm-5"></textarea>
+        <label data-event-field="true">错误码
+          <textarea id="matchErrorCodes" placeholder="例如：channel:no_response"></textarea>
+        </label>
+        <label data-event-field="true">状态码
+          <textarea id="matchStatusCodes" placeholder="例如：408, 503"></textarea>
         </label>
         <div class="advanced-toggle">
           <button class="ghost-btn mini-btn" id="toggleAdvancedRuleFieldsBtn" type="button">显示高级条件</button>
         </div>
         <div class="advanced-fields hidden" id="advancedRuleFields">
+          <label data-advanced-field="true">指定渠道 ID
+            <textarea id="matchChannelIds" placeholder="逗号或换行分隔"></textarea>
+          </label>
+          <label data-advanced-field="true">指定模型
+            <textarea id="matchModels" placeholder="例如：glm-5"></textarea>
+          </label>
           <label data-advanced-field="true">指定分组
             <textarea id="matchGroups" placeholder="例如：coding, default"></textarea>
           </label>
-          <label data-event-field="true">错误文本关键字
-            <textarea id="matchErrorText" placeholder="例如：上游没有返回消息"></textarea>
-          </label>
-          <label data-event-field="true">错误码
-            <textarea id="matchErrorCodes" placeholder="例如：channel:no_response"></textarea>
-          </label>
-          <label data-event-field="true">状态码
-            <textarea id="matchStatusCodes" placeholder="例如：408, 503"></textarea>
-          </label>
-          <label data-event-field="true">请求路径
+          <label data-event-field="true" data-advanced-field="true">请求路径
             <textarea id="matchRequestPaths" placeholder="例如：/v1/chat/completions"></textarea>
           </label>
         </div>

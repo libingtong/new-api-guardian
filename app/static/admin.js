@@ -367,10 +367,9 @@ function fillRuleForm(rule) {
   document.getElementById('matchRequestPaths').value = listToText(rule?.match_request_paths || []);
   syncRuleFormByAction(document.getElementById('ruleActionType').value);
   const shouldShowAdvanced = Boolean(
+    rule?.match_channel_ids?.length ||
+    rule?.match_models?.length ||
     rule?.match_groups?.length ||
-    rule?.match_error_text?.length ||
-    rule?.match_error_codes?.length ||
-    rule?.match_status_codes?.length ||
     rule?.match_request_paths?.length
   );
   setAdvancedFieldsVisible(shouldShowAdvanced && !isStabilityRule(rule));
