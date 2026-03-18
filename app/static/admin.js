@@ -56,7 +56,37 @@ function listToText(values) {
   return Array.isArray(values) && values.length ? values.join(', ') : '';
 }
 
+const state = {
+  rules: [],
+  refreshWarningShown: false,
+};
+
+const ACTION_LABELS = {
+  disable_channel: '禁用渠道',
+  restore_channel: '恢复渠道',
+  disable_model: '禁用模型',
+  restore_model: '恢复模型',
+  disable_unstable_channel: '禁用不稳定渠道（人工恢复）',
+};
+
+function actionLabel(actionType) {
+  return ACTION_LABELS[actionType] || text(actionType);
+}
+
+function isStabilityRule(rule) {
+  return rule?.action_type === 'disable_unstable_channel';
+}
+
+function scopeSummary(rule) {
+  const chunks = [];
+  if (rule.match_channel_ids?.length) chunks.push(`渠道: ${rule.match_channel_ids.join(',')}`);
+  if (rule.match_groups?.length) chunks.push(`分组: ${rule.match_groups.join(',')}`);
+  if (rule.match_models?.length) chunks.push(`模型: ${rule.match_models.join(',')}`);
+  return chunks.length ? chunks.join(' | ') : '全部渠道范围';
+}
+
 function summarizeRule(rule) {
+  if (isStabilityRule(rule)) return scopeSummary(rule);
   const chunks = [];
   if (rule.match_channel_ids?.length) chunks.push(`渠道: ${rule.match_channel_ids.join(',')}`);
   if (rule.match_groups?.length) chunks.push(`分组: ${rule.match_groups.join(',')}`);
@@ -68,14 +98,25 @@ function summarizeRule(rule) {
   return chunks.length ? chunks.join(' | ') : '无额外匹配条件';
 }
 
-const state = {
-  rules: [],
-  refreshWarningShown: false,
-};
+function syncRuleFormByAction(actionType) {
+  const isStability = actionType === 'disable_unstable_channel';
+  document.querySelectorAll('[data-event-field="true"]').forEach((node) => {
+    node.classList.toggle('hidden', isStability);
+  });
+  document.getElementById('ruleModalDesc').textContent = isStability
+    ? '按历史自动禁用次数定义稳定性规则，用于识别反复抖动且需要人工恢复的渠道'
+    : '按渠道、模型、状态码、错误码、返回内容组合定义错误事件规则';
+  document.getElementById('ruleWindowSecondsLabel').childNodes[0].textContent = isStability ? '统计窗口（秒）' : '窗口秒数';
+  document.getElementById('ruleThresholdCountLabel').childNodes[0].textContent = isStability ? '自动禁用次数阈值' : '阈值次数';
+  document.getElementById('ruleFormHint').textContent = isStability
+    ? '稳定性规则按历史“自动禁用渠道”次数判断，不使用错误码、状态码、请求路径等实时错误条件。'
+    : '保存前提醒：如果没有限定渠道、分组、模型，规则覆盖面会非常大。系统已禁止“全空条件”规则。';
+}
 
 function openRuleModal(mode = 'create') {
   document.getElementById('ruleModal').classList.remove('hidden');
   document.getElementById('ruleModalTitle').textContent = mode === 'edit' ? '编辑规则' : '新增规则';
+  syncRuleFormByAction(document.getElementById('ruleActionType').value);
 }
 
 function closeRuleModal() {
@@ -121,9 +162,14 @@ function renderRefreshWarning(refreshStatus) {
 
 function renderRules(items) {
   state.rules = items;
-  const tbody = document.querySelector('#rulesTable tbody');
+  renderRuleTable('#errorRulesTable', items.filter((rule) => !isStabilityRule(rule)), false);
+  renderRuleTable('#stabilityRulesTable', items.filter((rule) => isStabilityRule(rule)), true);
+}
+
+function renderRuleTable(selector, items, stabilityMode) {
+  const tbody = document.querySelector(`${selector} tbody`);
   if (!items.length) {
-    tbody.innerHTML = '<tr><td colspan="6">暂无规则</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="7">${stabilityMode ? '暂无稳定性规则' : '暂无错误事件规则'}</td></tr>`;
     return;
   }
   tbody.innerHTML = items
@@ -135,6 +181,7 @@ function renderRules(items) {
           <div class="subtle-text">优先级 ${num(rule.priority)}</div>
         </td>
         <td>${rule.enabled ? badge('启用', 'success') : badge('停用', 'warning')}</td>
+        <td>${badge(actionLabel(rule.action_type), stabilityMode ? 'danger' : rule.action_type === 'disable_model' ? 'warning' : 'danger')}</td>
         <td>${rule.threshold_count} 次 / ${rule.window_seconds} 秒</td>
         <td>${summarizeRule(rule)}</td>
         <td class="inline-actions">
@@ -241,12 +288,12 @@ function renderModelRecovery(items) {
 }
 
 function actionBadge(actionType) {
-  if (actionType === 'restore_channel') return badge('恢复渠道', 'success');
-  if (actionType === 'disable_channel') return badge('禁用渠道', 'danger');
-  if (actionType === 'disable_unstable_channel') return badge('不稳定禁用', 'danger');
-  if (actionType === 'restore_model') return badge('恢复模型', 'success');
-  if (actionType === 'disable_model') return badge('禁用模型', 'warning');
-  return badge(text(actionType), 'neutral');
+  if (actionType === 'restore_channel') return badge(actionLabel(actionType), 'success');
+  if (actionType === 'disable_channel') return badge(actionLabel(actionType), 'danger');
+  if (actionType === 'disable_unstable_channel') return badge('禁用不稳定渠道', 'danger');
+  if (actionType === 'restore_model') return badge(actionLabel(actionType), 'success');
+  if (actionType === 'disable_model') return badge(actionLabel(actionType), 'warning');
+  return badge(actionLabel(actionType), 'neutral');
 }
 
 function renderActions(items) {
@@ -306,6 +353,7 @@ function fillRuleForm(rule) {
   document.getElementById('matchErrorCodes').value = listToText(rule?.match_error_codes || []);
   document.getElementById('matchStatusCodes').value = listToText(rule?.match_status_codes || []);
   document.getElementById('matchRequestPaths').value = listToText(rule?.match_request_paths || []);
+  syncRuleFormByAction(document.getElementById('ruleActionType').value);
 }
 
 function readRuleForm() {
@@ -327,6 +375,13 @@ function readRuleForm() {
 }
 
 function hasAnyMatchCondition(payload) {
+  if (payload.action_type === 'disable_unstable_channel') {
+    return Boolean(
+      payload.match_channel_ids.length ||
+      payload.match_groups.length ||
+      payload.match_models.length
+    );
+  }
   return Boolean(
     payload.match_channel_ids.length ||
     payload.match_groups.length ||
@@ -362,29 +417,31 @@ async function loadDashboard() {
 }
 
 function bindRuleTable() {
-  document.querySelector('#rulesTable tbody').addEventListener('click', async (event) => {
-    const btn = event.target.closest('button');
-    if (!btn) return;
-    const ruleId = Number(btn.dataset.id);
-    const rule = state.rules.find((item) => item.id === ruleId);
-    if (!rule) return;
-    if (btn.dataset.action === 'edit') {
-      fillRuleForm(rule);
-      openRuleModal('edit');
-      return;
-    }
-    if (btn.dataset.action === 'delete') {
-      const confirmed = window.confirm(`确认删除规则「${rule.name}」吗？`);
-      if (!confirmed) return;
-      await fetch(`/api/rules/${ruleId}`, { method: 'DELETE' });
-      await loadDashboard();
-      return;
-    }
-    if (btn.dataset.action === 'toggle') {
-      const payload = { ...rule, enabled: !rule.enabled };
-      await sendJson(`/api/rules/${ruleId}`, 'PUT', payload);
-      await loadDashboard();
-    }
+  document.querySelectorAll('.rules-table tbody').forEach((tbody) => {
+    tbody.addEventListener('click', async (event) => {
+      const btn = event.target.closest('button');
+      if (!btn) return;
+      const ruleId = Number(btn.dataset.id);
+      const rule = state.rules.find((item) => item.id === ruleId);
+      if (!rule) return;
+      if (btn.dataset.action === 'edit') {
+        fillRuleForm(rule);
+        openRuleModal('edit');
+        return;
+      }
+      if (btn.dataset.action === 'delete') {
+        const confirmed = window.confirm(`确认删除规则「${rule.name}」吗？`);
+        if (!confirmed) return;
+        await fetch(`/api/rules/${ruleId}`, { method: 'DELETE' });
+        await loadDashboard();
+        return;
+      }
+      if (btn.dataset.action === 'toggle') {
+        const payload = { ...rule, enabled: !rule.enabled };
+        await sendJson(`/api/rules/${ruleId}`, 'PUT', payload);
+        await loadDashboard();
+      }
+    });
   });
 }
 
@@ -401,6 +458,9 @@ function bindUnstableTable() {
 }
 
 function bindRuleForm() {
+  document.getElementById('ruleActionType').addEventListener('change', (event) => {
+    syncRuleFormByAction(event.target.value);
+  });
   document.getElementById('ruleForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     const payload = readRuleForm();
@@ -409,7 +469,11 @@ function bindRuleForm() {
       return;
     }
     if (!hasAnyMatchCondition(payload)) {
-      alert('至少需要填写一项匹配条件，系统不允许保存全空条件规则。');
+      alert(
+        payload.action_type === 'disable_unstable_channel'
+          ? '稳定性规则至少需要限定渠道、分组、模型中的一项。'
+          : '至少需要填写一项匹配条件，系统不允许保存全空条件规则。'
+      );
       return;
     }
     if (isBroadRiskRule(payload)) {
@@ -437,8 +501,16 @@ function bindRuleForm() {
 }
 
 function bindRuleModal() {
-  document.getElementById('openCreateRuleBtn').addEventListener('click', () => {
+  document.getElementById('openCreateErrorRuleBtn').addEventListener('click', () => {
     fillRuleForm(null);
+    document.getElementById('ruleActionType').value = 'disable_channel';
+    syncRuleFormByAction('disable_channel');
+    openRuleModal('create');
+  });
+  document.getElementById('openCreateStabilityRuleBtn').addEventListener('click', () => {
+    fillRuleForm(null);
+    document.getElementById('ruleActionType').value = 'disable_unstable_channel';
+    syncRuleFormByAction('disable_unstable_channel');
     openRuleModal('create');
   });
   document.getElementById('closeRuleModalBtn').addEventListener('click', closeRuleModal);
