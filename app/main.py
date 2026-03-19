@@ -69,7 +69,8 @@ ADMIN_PATH = os.getenv("ADMIN_PATH", "/console-9f3a2d7e").strip() or "/console-9
 if not ADMIN_PATH.startswith("/"):
     ADMIN_PATH = f"/{ADMIN_PATH}"
 TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "1") != "0"
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
+ALLOW_UNSAFE_ADMIN_ACCESS = os.getenv("ALLOW_UNSAFE_ADMIN_ACCESS", "0") == "1"
 ADMIN_AUTH_COOKIE = "admin_auth"
 ADMIN_API_PREFIXES = (
     "/api/admin-summary",
@@ -133,10 +134,20 @@ def get_admin_password_hash() -> str:
     return hashlib.sha256(ADMIN_PASSWORD.encode("utf-8")).hexdigest()
 
 
+def admin_path_matches(path: str) -> bool:
+    return path == ADMIN_PATH or path == f"{ADMIN_PATH}/"
+
+
+def admin_access_configured() -> bool:
+    return bool(ADMIN_PASSWORD) or ALLOW_UNSAFE_ADMIN_ACCESS
+
+
 def is_admin_authenticated(request: Request) -> bool:
+    if ALLOW_UNSAFE_ADMIN_ACCESS:
+        return True
     expected = get_admin_password_hash()
     if not expected:
-        return True
+        return False
     actual = request.cookies.get(ADMIN_AUTH_COOKIE, "")
     if not actual:
         return False
@@ -144,9 +155,7 @@ def is_admin_authenticated(request: Request) -> bool:
 
 
 def requires_admin_auth(path: str) -> bool:
-    if not ADMIN_PASSWORD:
-        return False
-    if path == ADMIN_PATH:
+    if admin_path_matches(path):
         return True
     return any(path.startswith(prefix) for prefix in ADMIN_API_PREFIXES)
 
@@ -189,6 +198,10 @@ async def protect_admin_with_password(request: Request, call_next):
         return await call_next(request)
     if not requires_admin_auth(path):
         return await call_next(request)
+    if not admin_access_configured():
+        if path.startswith("/api/"):
+            return JSONResponse(status_code=503, content={"detail": "admin password is not configured"})
+        return HTMLResponse("Admin password is not configured", status_code=503)
     if is_admin_authenticated(request):
         return await call_next(request)
 
@@ -228,6 +241,8 @@ def home_page(request: Request):
 
 @app.get(ADMIN_PATH, response_class=HTMLResponse)
 def admin_dashboard(request: Request):
+    if not admin_access_configured():
+        return HTMLResponse("Admin password is not configured", status_code=503)
     if ADMIN_PASSWORD and not is_admin_authenticated(request):
         return templates.TemplateResponse(request, "admin_login.html", {"admin_path": ADMIN_PATH})
     return templates.TemplateResponse(request, "admin.html", {"admin_path": ADMIN_PATH})
@@ -254,8 +269,10 @@ def health():
 
 @app.post("/api/admin-auth/login")
 def admin_login(payload: AdminLoginPayload):
-    if not ADMIN_PASSWORD:
+    if ALLOW_UNSAFE_ADMIN_ACCESS:
         return {"ok": True, "admin_path": ADMIN_PATH}
+    if not ADMIN_PASSWORD:
+        raise HTTPException(status_code=503, detail="admin password is not configured")
     if not hmac.compare_digest(payload.password, ADMIN_PASSWORD):
         raise HTTPException(status_code=401, detail="invalid admin password")
     response = JSONResponse({"ok": True, "admin_path": ADMIN_PATH})

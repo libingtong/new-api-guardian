@@ -27,12 +27,31 @@ class MainRouteTests(unittest.TestCase):
         worker.snapshot.return_value = {"log_scanner": {"running": False}}
         worker_cls = Mock(return_value=worker)
 
-        with patch("app.main.bootstrap_database"), patch("app.main.WorkerManager", worker_cls):
+        with patch("app.main.ADMIN_PASSWORD", "secret"), patch("app.main.bootstrap_database"), patch(
+            "app.main.WorkerManager",
+            worker_cls,
+        ):
             with TestClient(app) as client:
+                response = client.post("/api/admin-auth/login", json={"password": "secret"})
+                self.assertEqual(response.status_code, 200)
                 response = client.get(main_module.ADMIN_PATH)
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("渠道熔断与自动恢复控制台", response.text)
+
+    def test_admin_dashboard_is_unavailable_when_password_not_configured(self):
+        worker = Mock()
+        worker.snapshot.return_value = {}
+        worker_cls = Mock(return_value=worker)
+
+        with patch("app.main.ADMIN_PASSWORD", ""), patch("app.main.ALLOW_UNSAFE_ADMIN_ACCESS", False), patch(
+            "app.main.bootstrap_database"
+        ), patch("app.main.WorkerManager", worker_cls):
+            with TestClient(app) as client:
+                response = client.get(main_module.ADMIN_PATH)
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("Admin password is not configured", response.text)
 
     def test_admin_dashboard_shows_login_when_password_enabled(self):
         worker = Mock()
@@ -77,6 +96,33 @@ class MainRouteTests(unittest.TestCase):
                 response = client.get("/api/rules")
 
         self.assertEqual(response.status_code, 401)
+
+    def test_admin_api_is_unavailable_when_password_not_configured(self):
+        worker = Mock()
+        worker.snapshot.return_value = {}
+        worker_cls = Mock(return_value=worker)
+
+        with patch("app.main.ADMIN_PASSWORD", ""), patch("app.main.ALLOW_UNSAFE_ADMIN_ACCESS", False), patch(
+            "app.main.bootstrap_database"
+        ), patch("app.main.WorkerManager", worker_cls):
+            with TestClient(app) as client:
+                response = client.get("/api/rules")
+
+        self.assertEqual(response.status_code, 503)
+
+    def test_admin_dashboard_can_be_explicitly_opened_in_unsafe_mode(self):
+        worker = Mock()
+        worker.snapshot.return_value = {}
+        worker_cls = Mock(return_value=worker)
+
+        with patch("app.main.ADMIN_PASSWORD", ""), patch("app.main.ALLOW_UNSAFE_ADMIN_ACCESS", True), patch(
+            "app.main.bootstrap_database"
+        ), patch("app.main.WorkerManager", worker_cls):
+            with TestClient(app) as client:
+                response = client.get(main_module.ADMIN_PATH)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("渠道熔断与自动恢复控制台", response.text)
 
     def test_health_endpoint_returns_worker_snapshot(self):
         worker = Mock()
@@ -144,7 +190,7 @@ class MainRouteTests(unittest.TestCase):
         worker.snapshot.return_value = {}
         worker_cls = Mock(return_value=worker)
 
-        with patch("app.main.ADMIN_PASSWORD", ""), patch("app.main.bootstrap_database"), patch(
+        with patch("app.main.ADMIN_PASSWORD", ""), patch("app.main.ALLOW_UNSAFE_ADMIN_ACCESS", True), patch("app.main.bootstrap_database"), patch(
             "app.main.WorkerManager",
             worker_cls,
         ), patch("app.main.manual_restore_channel", return_value={"ok": True, "channel_id": 9}) as restore_mock:
@@ -160,7 +206,7 @@ class MainRouteTests(unittest.TestCase):
         worker.snapshot.return_value = {}
         worker_cls = Mock(return_value=worker)
 
-        with patch("app.main.ADMIN_PASSWORD", ""), patch("app.main.bootstrap_database"), patch(
+        with patch("app.main.ADMIN_PASSWORD", ""), patch("app.main.ALLOW_UNSAFE_ADMIN_ACCESS", True), patch("app.main.bootstrap_database"), patch(
             "app.main.WorkerManager",
             worker_cls,
         ), patch("app.main.delete_rule") as delete_rule_mock:
@@ -176,7 +222,7 @@ class MainRouteTests(unittest.TestCase):
         worker.snapshot.return_value = {}
         worker_cls = Mock(return_value=worker)
 
-        with patch("app.main.ADMIN_PASSWORD", ""), patch("app.main.bootstrap_database"), patch(
+        with patch("app.main.ADMIN_PASSWORD", ""), patch("app.main.ALLOW_UNSAFE_ADMIN_ACCESS", True), patch("app.main.bootstrap_database"), patch(
             "app.main.WorkerManager",
             worker_cls,
         ):
@@ -206,7 +252,7 @@ class MainRouteTests(unittest.TestCase):
         worker.snapshot.return_value = {}
         worker_cls = Mock(return_value=worker)
 
-        with patch("app.main.ALLOWED_IP_NETWORKS", [ip_network("10.0.0.0/8")]), patch(
+        with patch("app.main.ADMIN_PASSWORD", ""), patch("app.main.ALLOW_UNSAFE_ADMIN_ACCESS", True), patch("app.main.ALLOWED_IP_NETWORKS", [ip_network("10.0.0.0/8")]), patch(
             "app.main.bootstrap_database"
         ), patch("app.main.WorkerManager", worker_cls):
             with TestClient(app) as client:

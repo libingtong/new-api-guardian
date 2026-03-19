@@ -38,7 +38,8 @@ services:
       - ADMIN_PATH=/console-9f3a2d7e
       - ALLOWED_IPS=
       - TRUST_PROXY_HEADERS=1
-      - ADMIN_PASSWORD=
+      - ADMIN_PASSWORD=change_me
+      - ALLOW_UNSAFE_ADMIN_ACCESS=0
       - INIT_IMPORT_FROM_DUMP=0
       - CHANNEL_TEST_URL_TEMPLATE=
       - CHANNEL_TEST_USER=1
