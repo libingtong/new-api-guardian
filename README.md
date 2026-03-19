@@ -643,8 +643,6 @@ docker compose -f docker-compose.localtest.yml up -d --build
 
 ### 探测与恢复
 - `CHANNEL_TEST_URL_TEMPLATE`
-- `CHANNEL_TEST_USER`
-- `CHANNEL_TEST_AUTHORIZATION`
 - `CHANNEL_TEST_STREAM`
 - `SCAN_INTERVAL_SECONDS`
 - `RECOVERY_INTERVAL_SECONDS`
@@ -697,13 +695,18 @@ PUT /api/channel/
 - `NEW_API_ACCESS_TOKEN`
 - `NEW_API_USER_ID`
 
-2. 如果未配置，则自动从数据库回退读取
+2. 探测接口和缓存刷新接口共用同一套身份来源
+- 禁用前主动探测
+- 自动恢复探测
+- `new-api` 渠道缓存刷新
+
+3. 如果未配置，则自动从数据库回退读取
 - `users.access_token`
 - `users.id`
 
-3. 如果找不到可用管理员访问令牌
+4. 如果找不到可用管理员访问令牌
 - 仍会继续写数据库
-- 但不会执行缓存刷新
+- 但不会执行探测调用和缓存刷新
 - 管理页会给出显式告警
 
 ## 规则能力

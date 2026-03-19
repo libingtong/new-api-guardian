@@ -58,6 +58,43 @@ class BreakerProbeGateTests(unittest.TestCase):
         self.assertEqual(captured["url"], "https://probe.local/api/channel/test/38?model=glm-5&stream=true")
         self.assertTrue(payload["success"])
 
+    def test_channel_probe_uses_unified_new_api_auth_headers(self):
+        captured = {}
+
+        class _FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def getcode(self):
+                return 200
+
+            def read(self):
+                return b'{"success": true}'
+
+        def fake_urlopen(req, timeout):
+            captured["authorization"] = req.get_header("Authorization")
+            captured["user"] = req.get_header("New-api-user")
+            captured["timeout"] = timeout
+            return _FakeResponse()
+
+        with (
+            patch.object(breaker, "PROBE_URL_TEMPLATE", "https://probe.local/api/channel/test/{channel_id}?model={model}"),
+            patch.object(breaker, "PROBE_STREAM_ENABLED", False),
+            patch.object(breaker, "NEW_API_ACCESS_TOKEN", "token-123"),
+            patch.object(breaker, "NEW_API_USER_ID", "7"),
+            patch("app.breaker.urllib_request.urlopen", side_effect=fake_urlopen),
+        ):
+            success, detail, payload = breaker.perform_channel_probe(38, "glm-5")
+
+        self.assertTrue(success)
+        self.assertEqual(detail, "ok")
+        self.assertEqual(captured["authorization"], "token-123")
+        self.assertEqual(captured["user"], "7")
+        self.assertTrue(payload["success"])
+
     def test_build_unstable_channel_notification_payload_contains_manual_restore_context(self):
         payload = build_unstable_channel_notification_payload(
             event={

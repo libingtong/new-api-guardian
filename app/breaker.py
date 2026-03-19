@@ -40,10 +40,6 @@ PROBE_URL_TEMPLATE = os.getenv(
     "https://api.zhitong.work/api/channel/test/{channel_id}?model={model}",
 )
 PROBE_STREAM_ENABLED = os.getenv("CHANNEL_TEST_STREAM", "1") != "0"
-PROBE_HEADERS = {
-    "new-api-user": os.getenv("CHANNEL_TEST_USER", "1"),
-    "Authorization": os.getenv("CHANNEL_TEST_AUTHORIZATION", ""),
-}
 NEW_API_BASE_URL = os.getenv("NEW_API_BASE_URL", "").strip().rstrip("/")
 NEW_API_ACCESS_TOKEN = os.getenv("NEW_API_ACCESS_TOKEN", "").strip()
 NEW_API_USER_ID = os.getenv("NEW_API_USER_ID", "").strip()
@@ -276,8 +272,8 @@ def refresh_new_api_channel_cache(channel_id: int) -> bool:
     if not NEW_API_BASE_URL:
         return False
 
-    access_token, user_id = resolve_new_api_auth()
-    if not access_token or not user_id:
+    headers = build_new_api_auth_headers()
+    if not headers:
         return False
 
     url = f"{NEW_API_BASE_URL}/api/channel/"
@@ -287,8 +283,7 @@ def refresh_new_api_channel_cache(channel_id: int) -> bool:
         data=payload,
         headers={
             "Content-Type": "application/json",
-            "Authorization": access_token,
-            "New-Api-User": user_id,
+            **headers,
         },
         method="PUT",
     )
@@ -345,6 +340,16 @@ def resolve_new_api_auth(log_missing: bool = True) -> tuple[str, str]:
 
     LOGGER.info("new-api channel refresh auth loaded from database user_id=%s", user_id)
     return access_token, user_id
+
+
+def build_new_api_auth_headers(log_missing: bool = True) -> Dict[str, str]:
+    access_token, user_id = resolve_new_api_auth(log_missing=log_missing)
+    if not access_token or not user_id:
+        return {}
+    return {
+        "Authorization": access_token,
+        "New-Api-User": user_id,
+    }
 
 
 def get_new_api_refresh_status() -> Dict[str, Any]:
@@ -2005,7 +2010,7 @@ def perform_channel_probe(channel_id: int, probe_model: str) -> tuple[bool, str,
     if PROBE_STREAM_ENABLED and "stream=" not in url:
         separator = "&" if "?" in url else "?"
         url = f"{url}{separator}stream=true"
-    req = urllib_request.Request(url=url, headers=PROBE_HEADERS, method="GET")
+    req = urllib_request.Request(url=url, headers=build_new_api_auth_headers(), method="GET")
     try:
         with urllib_request.urlopen(req, timeout=PROBE_TIMEOUT_SECONDS) as resp:
             body = resp.read().decode("utf-8", errors="ignore")
