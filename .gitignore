@@ -7,3 +7,4 @@ TASKS.md
 oneapi_2026-03-02_11-27-44_mysql_data_tNhek.sql
 data/
 logs/
+.playwright-cli/
