@@ -111,9 +111,18 @@ function saveVisibleColumns(keys) {
 
 function initDefaultTime() {
   const now = new Date();
+  applyRangePreset('month', now);
+}
+
+function applyRangePreset(preset, now = new Date()) {
   const end = Math.floor(now.getTime() / 1000);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
-  const start = Math.floor(monthStart.getTime() / 1000);
+  let startDate;
+  if (preset === 'day') {
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  } else {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+  }
+  const start = Math.floor(startDate.getTime() / 1000);
   document.getElementById('startTime').value = toLocalInputValue(start);
   document.getElementById('endTime').value = toLocalInputValue(end);
 }
@@ -256,6 +265,17 @@ function bindModal() {
   document.querySelector('#ipDetailModal .modal-backdrop').addEventListener('click', closeModal);
 }
 
+function bindRangeShortcuts() {
+  document.getElementById('monthRangeBtn').addEventListener('click', async () => {
+    applyRangePreset('month');
+    await run();
+  });
+  document.getElementById('dayRangeBtn').addEventListener('click', async () => {
+    applyRangePreset('day');
+    await run();
+  });
+}
+
 function bindDetails() {
   document.querySelector('#leaderboardTable tbody').addEventListener('click', async (event) => {
     const btn = event.target.closest('.detail-btn');
@@ -306,6 +326,7 @@ async function main() {
   bindModal();
   bindDetails();
   bindColumnPicker();
+  bindRangeShortcuts();
   await loadGroups();
   document.getElementById('runBtn').addEventListener('click', run);
   await run();
