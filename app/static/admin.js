@@ -59,6 +59,12 @@ function listToText(values) {
 const state = {
   rules: [],
   refreshWarningShown: false,
+  audit: {
+    actionsPage: 1,
+    actionsPageSize: 12,
+    hitsPage: 1,
+    hitsPageSize: 12,
+  },
 };
 
 const ACTION_LABELS = {
@@ -350,6 +356,60 @@ function renderHits(items) {
     .join('');
 }
 
+function renderPagination(containerId, pagination, type) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const total = Number(pagination?.total || 0);
+  const page = Number(pagination?.page || 1);
+  const totalPages = Number(pagination?.total_pages || 1);
+  if (!total) {
+    container.innerHTML = '';
+    return;
+  }
+  const buttons = [];
+  buttons.push(`
+    <button
+      class="pager-btn"
+      type="button"
+      data-page-type="${type}"
+      data-page="${Math.max(1, page - 1)}"
+      ${page <= 1 ? 'disabled' : ''}
+    >上一页</button>
+  `);
+  const visiblePages = new Set([1, totalPages, page - 1, page, page + 1].filter((item) => item >= 1 && item <= totalPages));
+  let lastPage = 0;
+  [...visiblePages].sort((a, b) => a - b).forEach((item) => {
+    if (lastPage && item - lastPage > 1) {
+      buttons.push('<span class="pager-gap">…</span>');
+    }
+    buttons.push(`
+      <button
+        class="pager-btn ${item === page ? 'active' : ''}"
+        type="button"
+        data-page-type="${type}"
+        data-page="${item}"
+        ${item === page ? 'disabled' : ''}
+      >${item}</button>
+    `);
+    lastPage = item;
+  });
+  buttons.push(`
+    <button
+      class="pager-btn"
+      type="button"
+      data-page-type="${type}"
+      data-page="${Math.min(totalPages, page + 1)}"
+      ${page >= totalPages ? 'disabled' : ''}
+    >下一页</button>
+  `);
+  const start = (page - 1) * Number(pagination.page_size || 0) + 1;
+  const end = Math.min(total, page * Number(pagination.page_size || 0));
+  container.innerHTML = `
+    <div class="pager-summary">第 ${start}-${end} 条，共 ${num(total)} 条</div>
+    <div class="pager-actions">${buttons.join('')}</div>
+  `;
+}
+
 function fillRuleForm(rule) {
   document.getElementById('ruleId').value = rule?.id || '';
   document.getElementById('ruleName').value = rule?.name || '';
@@ -430,7 +490,12 @@ async function loadDashboard() {
     getJson('/api/channels/auto-disabled'),
     getJson('/api/channels/unstable-disabled'),
     getJson('/api/channels/recovery-state'),
-    getJson('/api/events', { limit: 50 }),
+    getJson('/api/events', {
+      action_page: state.audit.actionsPage,
+      action_page_size: state.audit.actionsPageSize,
+      hit_page: state.audit.hitsPage,
+      hit_page_size: state.audit.hitsPageSize,
+    }),
   ]);
   renderSummary(summary);
   renderRules(rules.items || []);
@@ -440,6 +505,10 @@ async function loadDashboard() {
   renderModelRecovery(recovery.model_items || []);
   renderActions(events.actions || []);
   renderHits(events.hits || []);
+  state.audit.actionsPage = Number(events.actions_pagination?.page || state.audit.actionsPage);
+  state.audit.hitsPage = Number(events.hits_pagination?.page || state.audit.hitsPage);
+  renderPagination('actionsPagination', events.actions_pagination, 'actions');
+  renderPagination('hitsPagination', events.hits_pagination, 'hits');
 }
 
 function bindRuleTable() {
@@ -583,6 +652,26 @@ function bindDashboardViews() {
   activateView(initialActive);
 }
 
+function bindAuditPagination() {
+  const auditPanel = document.querySelector('[data-dashboard-view-panel="audit"]');
+  if (!auditPanel) return;
+  auditPanel.addEventListener('click', async (event) => {
+    const btn = event.target.closest('.pager-btn[data-page-type]');
+    if (!btn || btn.disabled) return;
+    const pageType = btn.dataset.pageType;
+    const page = Number(btn.dataset.page || 1);
+    if (!Number.isFinite(page) || page < 1) return;
+    if (pageType === 'actions') {
+      state.audit.actionsPage = page;
+    } else if (pageType === 'hits') {
+      state.audit.hitsPage = page;
+    } else {
+      return;
+    }
+    await loadDashboard();
+  });
+}
+
 async function main() {
   bindRuleTable();
   bindUnstableTable();
@@ -590,6 +679,7 @@ async function main() {
   bindRuleModal();
   bindLogout();
   bindDashboardViews();
+  bindAuditPagination();
   fillRuleForm(null);
   await loadDashboard();
 }

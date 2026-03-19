@@ -571,9 +571,24 @@ def delete_rule(rule_id: int) -> None:
             raise
 
 
-def list_events(limit: int = 50) -> Dict[str, List[Dict[str, Any]]]:
+def list_events(
+    action_page: int = 1,
+    action_page_size: int = 12,
+    hit_page: int = 1,
+    hit_page_size: int = 12,
+) -> Dict[str, Any]:
+    action_page = max(1, int(action_page or 1))
+    action_page_size = max(1, min(int(action_page_size or 12), 100))
+    hit_page = max(1, int(hit_page or 1))
+    hit_page_size = max(1, min(int(hit_page_size or 12), 100))
+
     with get_conn() as conn:
         with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) AS total FROM channel_action_audit")
+            action_total = int((cur.fetchone() or {}).get("total") or 0)
+            action_total_pages = max(1, (action_total + action_page_size - 1) // action_page_size)
+            action_page = min(action_page, action_total_pages)
+            action_offset = (action_page - 1) * action_page_size
             cur.execute(
                 """
                 SELECT
@@ -591,9 +606,9 @@ def list_events(limit: int = 50) -> Dict[str, List[Dict[str, Any]]]:
                 FROM channel_action_audit a
                 LEFT JOIN channels c ON c.id = a.channel_id
                 ORDER BY a.id DESC
-                LIMIT %s
+                LIMIT %s OFFSET %s
                 """,
-                (limit,),
+                (action_page_size, action_offset),
             )
             actions = []
             for row in cur.fetchall():
@@ -602,6 +617,11 @@ def list_events(limit: int = 50) -> Dict[str, List[Dict[str, Any]]]:
                 item["source_log_ids"] = parse_json_text(item.get("source_log_ids"), [])
                 actions.append(item)
 
+            cur.execute("SELECT COUNT(*) AS total FROM rule_hits")
+            hit_total = int((cur.fetchone() or {}).get("total") or 0)
+            hit_total_pages = max(1, (hit_total + hit_page_size - 1) // hit_page_size)
+            hit_page = min(hit_page, hit_total_pages)
+            hit_offset = (hit_page - 1) * hit_page_size
             cur.execute(
                 """
                 SELECT
@@ -618,9 +638,9 @@ def list_events(limit: int = 50) -> Dict[str, List[Dict[str, Any]]]:
                 LEFT JOIN rule_definitions rd ON rd.id = rh.rule_id
                 LEFT JOIN channels c ON c.id = rh.channel_id
                 ORDER BY rh.id DESC
-                LIMIT %s
+                LIMIT %s OFFSET %s
                 """,
-                (limit,),
+                (hit_page_size, hit_offset),
             )
             hits = []
             for row in cur.fetchall():
@@ -628,7 +648,22 @@ def list_events(limit: int = 50) -> Dict[str, List[Dict[str, Any]]]:
                 item["snapshot_json"] = parse_json_text(item.get("snapshot_json"), {})
                 hits.append(item)
 
-    return {"actions": actions, "hits": hits}
+    return {
+        "actions": actions,
+        "hits": hits,
+        "actions_pagination": {
+            "page": action_page,
+            "page_size": action_page_size,
+            "total": action_total,
+            "total_pages": action_total_pages,
+        },
+        "hits_pagination": {
+            "page": hit_page,
+            "page_size": hit_page_size,
+            "total": hit_total,
+            "total_pages": hit_total_pages,
+        },
+    }
 
 
 def list_auto_disabled_channels() -> List[Dict[str, Any]]:

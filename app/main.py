@@ -332,8 +332,18 @@ def delete_rule_api(rule_id: int):
 
 
 @app.get("/api/events")
-def events(limit: int = Query(default=50, ge=1, le=200)):
-    return list_events(limit=limit)
+def events(
+    action_page: int = Query(default=1, ge=1),
+    action_page_size: int = Query(default=12, ge=1, le=100),
+    hit_page: int = Query(default=1, ge=1),
+    hit_page_size: int = Query(default=12, ge=1, le=100),
+):
+    return list_events(
+        action_page=action_page,
+        action_page_size=action_page_size,
+        hit_page=hit_page,
+        hit_page_size=hit_page_size,
+    )
 
 
 @app.get("/api/channels/auto-disabled")
